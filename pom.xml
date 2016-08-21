@@ -4,15 +4,10 @@
 
     <modelVersion>4.0.0</modelVersion>
     <artifactId>nds-repository-parent</artifactId>
+    <groupId>org.sead.va</groupId>
     <version>2.0.0-SNAPSHOT</version>
     <name>SEAD NDS repository root pom</name>
     <packaging>pom</packaging>
-
-    <parent>
-        <groupId>org.sead.va</groupId>
-        <artifactId>va-parent</artifactId>
-        <version>2.0.0-SNAPSHOT</version>
-    </parent>
 
     <modules>
         <module>reference-repository</module>
