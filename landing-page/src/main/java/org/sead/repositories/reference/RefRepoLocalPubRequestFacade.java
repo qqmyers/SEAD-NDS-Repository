@@ -24,6 +24,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Properties;
 
 import org.apache.commons.io.IOUtils;
@@ -56,7 +58,7 @@ public class RefRepoLocalPubRequestFacade extends C3PRPubRequestFacade {
 	private String proxyServer = null;
 	
 	public RefRepoLocalPubRequestFacade(String RO_ID, String requestPath,
-			Properties props) {
+			Properties props) throws KeyManagementException, NoSuchAlgorithmException {
 		super(RO_ID, props);
 		requestFilePath = requestPath;
 

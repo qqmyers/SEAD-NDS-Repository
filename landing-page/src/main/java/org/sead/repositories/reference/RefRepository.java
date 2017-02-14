@@ -34,6 +34,8 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.file.Paths;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -137,14 +139,12 @@ public class RefRepository extends Repository {
 					switch (flag) {
 					case 'l':
 						localRequest = args[i + 1];
-						System.out
-								.println("Local Pub Request: " + localRequest);
+						System.out.println("Local Pub Request: " + localRequest);
 						i++;
 						break;
 					case 'r':
 						localContentSource = args[i + 1];
-						System.out.println("LocalContentSource: "
-								+ localContentSource);
+						System.out.println("LocalContentSource: " + localContentSource);
 						i++;
 						break;
 					case 'v':
@@ -164,7 +164,13 @@ public class RefRepository extends Repository {
 		 * possibly a local Content source.
 		 */
 		C3PRPubRequestFacade RO = null;
-		RO = new RefRepoLocalPubRequestFacade(roId, localRequest, getProps());
+		try {
+			RO = new RefRepoLocalPubRequestFacade(roId, localRequest, getProps());
+		} catch (Exception e) {
+			System.out.println("SSL_related exception: " + e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
 		BagGenerator bg;
 		bg = new BagGenerator(RO);
 		if (validateOnly) {
@@ -176,33 +182,26 @@ public class RefRepository extends Repository {
 		// Request human approval if needed - will send a fail status and
 		// exit if request is denied
 		localContentSource = handleRepub(RO, bg, localContentSource);
-		bg.setLinkRewriter(new ReferenceLinkRewriter(getProps().getProperty(
-				"repo.landing.base")));
+		bg.setLinkRewriter(new ReferenceLinkRewriter(getProps().getProperty("repo.landing.base")));
 		// FixMe - use repo.ID from properties file (possibly in repo class
 
 		// If using local Content and it is the same RO ID as the new pub (just
 		// reprocessing an existing RO, make the BagGenerator
 		// use a temp file (and not overwrite the local RO with an empty version
 		// at the start).
-		boolean useTemp = (localContentSource != null)
-				&& (localContentSource.equals(roId));
+		boolean useTemp = (localContentSource != null) && (localContentSource.equals(roId));
 		if (bg.generateBag(roId, (useTemp))) {
-			RO.sendStatus(PubRequestFacade.SUCCESS_STAGE, RO.getOREMap()
-					.getJSONObject("describes")
-					.getString("External Identifier"));
+			RO.sendStatus(PubRequestFacade.SUCCESS_STAGE,
+					RO.getOREMap().getJSONObject("describes").getString("External Identifier"));
 			System.out
-					.println("Publication was successful. New publication is in: "
-							+ RefRepository.getDataPathTo(roId));
+					.println("Publication was successful. New publication is in: " + RefRepository.getDataPathTo(roId));
 			if (localContentSource != null) {
-				System.out.println("New Publication was intended to replace "
-						+ localContentSource);
-				System.out.println("Old publication is in "
-						+ RefRepository.getDataPathTo(localContentSource)
+				System.out.println("New Publication was intended to replace " + localContentSource);
+				System.out.println("Old publication is in " + RefRepository.getDataPathTo(localContentSource)
 						+ " and could now be deleted.");
 			}
 		} else {
-			RO.sendStatus(
-					PubRequestFacade.FAILURE_STAGE,
+			RO.sendStatus(PubRequestFacade.FAILURE_STAGE,
 					"Processing of this request has failed. Further attempts to process this request may or may not be made. Please contact the repository for further information.");
 		}
 
@@ -210,43 +209,35 @@ public class RefRepository extends Repository {
 	}
 
 	private static void printUsage() {
-		System.out
-				.println("Could not parse requuest: No processing will occur.");
-		System.out
-				.println("Usage:  <RO Identifier> <-l <optional local pubRequest file (path to JSON document)>> <-r <local Content Source RO ID>> <-v>");
-		System.out
-				.println("-v - validateOnly - assumes a zip file for this RO ID exists and will attempt to validate the stored files w.r.t. the hash values in the oremap.");
-		System.out
-				.println("Note: RO identifier is always sent and must match the identifier in any local pub Request file used.");
-		System.out
-				.println("Note: A local content source will override info sent as an alternateOf Preference.");
+		System.out.println("Could not parse requuest: No processing will occur.");
+		System.out.println(
+				"Usage:  <RO Identifier> <-l <optional local pubRequest file (path to JSON document)>> <-r <local Content Source RO ID>> <-v>");
+		System.out.println(
+				"-v - validateOnly - assumes a zip file for this RO ID exists and will attempt to validate the stored files w.r.t. the hash values in the oremap.");
+		System.out.println(
+				"Note: RO identifier is always sent and must match the identifier in any local pub Request file used.");
+		System.out.println("Note: A local content source will override info sent as an alternateOf Preference.");
 
 		System.exit(0);
 	}
 
-	private static String handleRepub(C3PRPubRequestFacade RO, BagGenerator bg,
-			String localSource) {
+	private static String handleRepub(C3PRPubRequestFacade RO, BagGenerator bg, String localSource) {
 
 		JSONObject request = RO.getPublicationRequest();
 		JSONObject prefs = request.getJSONObject("Preferences");
 		Scanner input = new Scanner(System.in);
 		if (prefs.has("External Identifier")) {
 			String extIdPref = prefs.getString("External Identifier");
-			System.out.println("This publication is intended to replace "
-					+ extIdPref);
-			if (!((String) getProps().get("repo.allowupdates"))
-					.equalsIgnoreCase("true")) {
-				System.out
-						.println("NOTE: Since updates are not allowed, a new DOI will be generated.");
+			System.out.println("This publication is intended to replace " + extIdPref);
+			if (!((String) getProps().get("repo.allowupdates")).equalsIgnoreCase("true")) {
+				System.out.println("NOTE: Since updates are not allowed, a new DOI will be generated.");
 			}
 			System.out.println("Proceed (Y/N)?: ");
 
 			if (!input.next().equalsIgnoreCase("y")) {
 				input.close();
-				RO.sendStatus(
-						PubRequestFacade.FAILURE_STAGE,
-						"This request has been denied as a replacement for the existing publication: "
-								+ extIdPref
+				RO.sendStatus(PubRequestFacade.FAILURE_STAGE,
+						"This request has been denied as a replacement for the existing publication: " + extIdPref
 								+ ". Please contact the repository for further information.");
 				System.exit(0);
 			}
@@ -254,33 +245,24 @@ public class RefRepository extends Repository {
 		if (localSource == null && prefs.has("alternateOf")) {
 			// Add a LocalContent class
 			localSource = prefs.getString("alternateOf");
-			System.out
-					.println("Setting local content source to alternateOf value: "
-							+ localSource);
+			System.out.println("Setting local content source to alternateOf value: " + localSource);
 		}
 		if (localSource != null) {
-			System.out.println("Looking at: " + localSource
-					+ " for local content.");
+			System.out.println("Looking at: " + localSource + " for local content.");
 			log.info("Looking at: " + localSource + " for local content.");
-			RefLocalContentProvider ref = new RefLocalContentProvider(
-					localSource, Repository.getProps());
+			RefLocalContentProvider ref = new RefLocalContentProvider(localSource, Repository.getProps());
 			if (ref.getHashType() != null) {
 				bg.setLocalContentProvider(ref);
-				System.out.println("Proceeding with : " + localSource
-						+ " for local content.");
+				System.out.println("Proceeding with : " + localSource + " for local content.");
 			} else {
 
-				System.out
-						.println("Original RO not found/has no usable hash entries: "
-								+ getDataPathTo(localSource));
+				System.out.println("Original RO not found/has no usable hash entries: " + getDataPathTo(localSource));
 				System.out.println("Proceed (using remote content)? {Y/N}: ");
 				if (!input.next().equalsIgnoreCase("y")) {
 					input.close();
-					RO.sendStatus(
-							PubRequestFacade.FAILURE_STAGE,
+					RO.sendStatus(PubRequestFacade.FAILURE_STAGE,
 							"This request won't be processed due to a problem in finding local data copies: "
-									+ localSource
-									+ ". Please contact the repository for further information.");
+									+ localSource + ". Please contact the repository for further information.");
 					System.exit(0);
 				}
 				localSource = null;
@@ -294,7 +276,7 @@ public class RefRepository extends Repository {
 	/**
 	 * @Path("/researchobjects")
 	 * 
-	 *                           Returns the base landingpage html
+	 * Returns the base landingpage html
 	 */
 	@Path("/repository")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -304,17 +286,14 @@ public class RefRepository extends Repository {
 		String SEADServicesURL = Repository.getC3PRAddress();
 		URL repoInfo = null;
 		try {
-			repoInfo = new URL(SEADServicesURL + "api/repositories/"
-					+ URLEncoder.encode(id, "UTF-8"));
-			HttpURLConnection conn = (HttpURLConnection) repoInfo
-					.openConnection();
+			repoInfo = new URL(SEADServicesURL + "api/repositories/" + URLEncoder.encode(id, "UTF-8"));
+			HttpURLConnection conn = (HttpURLConnection) repoInfo.openConnection();
 
 			if (SEADServicesURL.startsWith("https")) {
 				// Make a connect to the server
 				SSLContext sc = SSLContext.getInstance("TLSv1.2");
 				sc.init(null, null, null);
-				((HttpsURLConnection) conn).setSSLSocketFactory(sc
-						.getSocketFactory());
+				((HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
 			}
 			log.debug("Connecting to: " + repoInfo.toString());
 			conn.setDoInput(true);
@@ -329,9 +308,7 @@ public class RefRepository extends Repository {
 			log.warn("Could not contact c3pr: " + repoInfo.toString());
 		}
 		log.debug("Unable to refer to repository info @ c3pr");
-		return Response
-				.status(com.sun.jersey.api.client.ClientResponse.Status.INTERNAL_SERVER_ERROR)
-				.build();
+		return Response.status(com.sun.jersey.api.client.ClientResponse.Status.INTERNAL_SERVER_ERROR).build();
 	}
 
 	/*
@@ -346,8 +323,7 @@ public class RefRepository extends Repository {
 	public Response getLandingPage(@PathParam(value = "id") String id) {
 		URI landingPage = null;
 		try {
-			landingPage = new URI("../landing.html#"
-					+ URLEncoder.encode(id, "UTF-8"));
+			landingPage = new URI("../landing.html#" + URLEncoder.encode(id, "UTF-8"));
 
 		} catch (URISyntaxException e) {
 			log.warn(e.getMessage() + " id: " + id);
@@ -388,8 +364,7 @@ public class RefRepository extends Repository {
 			final FileInputStream fis = new FileInputStream(descFile);
 
 			StreamingOutput stream = new StreamingOutput() {
-				public void write(OutputStream os) throws IOException,
-						WebApplicationException {
+				public void write(OutputStream os) throws IOException, WebApplicationException {
 					IOUtils.copy(fis, os);
 					fis.close();
 				}
@@ -430,11 +405,9 @@ public class RefRepository extends Repository {
 			File oremap = getOREMapFile(id);
 			// Find/open base ORE map file
 			// Note - limited to maxint size for oremap file size
-			cis = new CountingInputStream(new BufferedInputStream(
-					new FileInputStream(oremap), Math.min(
-							(int) oremap.length(), 1000000)));
-			JsonNode resultNode = getAggregation(id, indexFile, cis, true,
-					oremap.length());
+			cis = new CountingInputStream(
+					new BufferedInputStream(new FileInputStream(oremap), Math.min((int) oremap.length(), 1000000)));
+			JsonNode resultNode = getAggregation(id, indexFile, cis, true, oremap.length());
 			if (resultNode == null) {
 				log.warn("Null item returned");
 			}
@@ -486,8 +459,7 @@ public class RefRepository extends Repository {
 			File result = new File(path, bagNameRoot + ".zip");
 			zf = new ZipFile(result);
 			log.debug("Zipfile opened");
-			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot
-					+ "/oremap.jsonld.txt");
+			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot + "/oremap.jsonld.txt");
 			InputStream source = zf.getInputStream(archiveEntry1);
 			OutputStream sink = new FileOutputStream(map);
 			IOUtils.copy(source, sink);
@@ -495,9 +467,7 @@ public class RefRepository extends Repository {
 			IOUtils.closeQuietly(sink);
 			log.debug("ORE Map written: " + result.getCanonicalPath());
 		} catch (Exception e) {
-			log.error(
-					"Cannot read zipfile to create cached oremap: "
-							+ map.getPath(), e);
+			log.error("Cannot read zipfile to create cached oremap: " + map.getPath(), e);
 			e.printStackTrace();
 		} finally {
 			IOUtils.closeQuietly(zf);
@@ -507,8 +477,7 @@ public class RefRepository extends Repository {
 	@Path("/researchobjects/{id}/metadata/{did}")
 	@Produces(MediaType.APPLICATION_JSON)
 	@GET
-	public Response getResourceSummary(@PathParam(value = "id") String id,
-			@PathParam(value = "did") String dataID) {
+	public Response getResourceSummary(@PathParam(value = "id") String id, @PathParam(value = "did") String dataID) {
 		log.debug("Getting " + dataID + " from " + id);
 		String path = getDataPathTo(id);
 		String bagNameRoot = getBagNameRoot(id);
@@ -524,12 +493,10 @@ public class RefRepository extends Repository {
 			// Find/open base ORE map file
 			// Note - limited to maxint size for oremap file size
 			File map = getOREMapFile(id);
-			cis = new CountingInputStream(new BufferedInputStream(
-					new FileInputStream(map), Math.min((int) map.length(),
-							1000000)));
+			cis = new CountingInputStream(
+					new BufferedInputStream(new FileInputStream(map), Math.min((int) map.length(), 1000000)));
 
-			JsonNode resultNode = getItem(dataID, indexFile, cis, true,
-					map.length());
+			JsonNode resultNode = getItem(dataID, indexFile, cis, true, map.length());
 			if (resultNode == null) {
 				log.warn("Null item returned");
 			}
@@ -563,8 +530,7 @@ public class RefRepository extends Repository {
 	@Path("/researchobjects/{id}/data/{relpath}")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	@GET
-	public Response getDatafile(@PathParam(value = "id") String id,
-			@PathParam(value = "relpath") String datapath) {
+	public Response getDatafile(@PathParam(value = "id") String id, @PathParam(value = "relpath") String datapath) {
 		String path = getDataPathTo(id);
 
 		String bagNameRoot = getBagNameRoot(id);
@@ -573,15 +539,12 @@ public class RefRepository extends Repository {
 
 		try {
 			final ZipFile zf = new ZipFile(result);
-			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot + "/data/"
-					+ datapath);
+			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot + "/data/" + datapath);
 			if (archiveEntry1 != null) {
-				final InputStream inputStream = new BufferedInputStream(
-						zf.getInputStream(archiveEntry1));
+				final InputStream inputStream = new BufferedInputStream(zf.getInputStream(archiveEntry1));
 
 				stream = new StreamingOutput() {
-					public void write(OutputStream os) throws IOException,
-							WebApplicationException {
+					public void write(OutputStream os) throws IOException, WebApplicationException {
 						IOUtils.copy(inputStream, os);
 						IOUtils.closeQuietly(os);
 						IOUtils.closeQuietly(inputStream);
@@ -624,14 +587,11 @@ public class RefRepository extends Repository {
 		StreamingOutput stream = null;
 		try {
 			final ZipFile zf = new ZipFile(result);
-			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot + "/"
-					+ metadatapath);
+			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot + "/" + metadatapath);
 			if (archiveEntry1 != null) {
-				final InputStream inputStream = new BufferedInputStream(
-						zf.getInputStream(archiveEntry1));
+				final InputStream inputStream = new BufferedInputStream(zf.getInputStream(archiveEntry1));
 				stream = new StreamingOutput() {
-					public void write(OutputStream os) throws IOException,
-							WebApplicationException {
+					public void write(OutputStream os) throws IOException, WebApplicationException {
 						IOUtils.copy(inputStream, os);
 						IOUtils.closeQuietly(inputStream);
 						IOUtils.closeQuietly(os);
@@ -664,8 +624,7 @@ public class RefRepository extends Repository {
 			final InputStream inputStream = FileUtils.openInputStream(result);
 
 			StreamingOutput stream = new StreamingOutput() {
-				public void write(OutputStream os) throws IOException,
-						WebApplicationException {
+				public void write(OutputStream os) throws IOException, WebApplicationException {
 					IOUtils.copy(inputStream, os);
 					IOUtils.closeQuietly(inputStream);
 				}
@@ -684,8 +643,7 @@ public class RefRepository extends Repository {
 		String pathString = DigestUtils.sha1Hex(id);
 		String path = Repository.getDataPath();
 		// Two level hash-based distribution o files
-		path = Paths.get(path, pathString.substring(0, 2),
-				pathString.substring(2, 4)).toString();
+		path = Paths.get(path, pathString.substring(0, 2), pathString.substring(2, 4)).toString();
 		log.debug("Path:" + path);
 		return path;
 	}
@@ -702,8 +660,7 @@ public class RefRepository extends Repository {
 		String bagNameRoot = getBagNameRoot(id);
 		File descFile = new File(path, bagNameRoot + ".desc.json");
 		if (!descFile.exists()) {
-			final InputStream roInputStream = new FileInputStream(
-					getOREMapFile(id));
+			final InputStream roInputStream = new FileInputStream(getOREMapFile(id));
 			File indexFile = new File(path, bagNameRoot + ".index.json");
 			generateIndex(roInputStream, descFile, indexFile);
 			IOUtils.closeQuietly(roInputStream);
@@ -721,8 +678,7 @@ public class RefRepository extends Repository {
 		String bagNameRoot = getBagNameRoot(id);
 		File indexFile = new File(path, bagNameRoot + ".index.json");
 		if (!indexFile.exists()) {
-			final InputStream roInputStream = new FileInputStream(
-					getOREMapFile(id));
+			final InputStream roInputStream = new FileInputStream(getOREMapFile(id));
 			File descFile = new File(path, bagNameRoot + ".desc.json");
 			generateIndex(roInputStream, descFile, indexFile);
 			IOUtils.closeQuietly(roInputStream);
@@ -733,9 +689,8 @@ public class RefRepository extends Repository {
 
 	}
 
-	private JsonNode getAggregation(String id, File indexFile,
-			CountingInputStream cis, boolean withChildren, Long oreFileSize)
-			throws JsonParseException, JsonMappingException, IOException {
+	private JsonNode getAggregation(String id, File indexFile, CountingInputStream cis, boolean withChildren,
+			Long oreFileSize) throws JsonParseException, JsonMappingException, IOException {
 		log.debug("Getting Aggregation");
 
 		long curPos = 0;
@@ -773,8 +728,7 @@ public class RefRepository extends Repository {
 		log.trace(resultNode.toString());
 		if ((resultNode.has("Has Part")) && withChildren) {
 
-			resultNode = getChildren(resultNode, indexFile, cis, oreFileSize,
-					curPos, entries, offsets);
+			resultNode = getChildren(resultNode, indexFile, cis, oreFileSize, curPos, entries, offsets);
 		} else {
 			resultNode.remove("aggregates");
 		}
@@ -784,18 +738,15 @@ public class RefRepository extends Repository {
 
 	// Get the first item, before the entries and offsets lists are created
 	// (they are used to get children efficiently)
-	private JsonNode getItem(String item, File indexFile,
-			CountingInputStream cis, boolean withChildren, long oreFileSize)
-			throws JsonParseException, JsonMappingException, IOException {
-		return getItem(item, indexFile, cis, withChildren, oreFileSize, 0,
-				null, null);
+	private JsonNode getItem(String item, File indexFile, CountingInputStream cis, boolean withChildren,
+			long oreFileSize) throws JsonParseException, JsonMappingException, IOException {
+		return getItem(item, indexFile, cis, withChildren, oreFileSize, 0, null, null);
 	}
 
 	// Get an item as a child using the existing (if not null) entries and
 	// offset lists
-	private JsonNode getItem(String item, File indexFile,
-			CountingInputStream cis, boolean withChildren, Long oreFileSize,
-			long curOffset, ArrayList<String> entries, ArrayList<Long> offsets)
+	private JsonNode getItem(String item, File indexFile, CountingInputStream cis, boolean withChildren,
+			Long oreFileSize, long curOffset, ArrayList<String> entries, ArrayList<Long> offsets)
 			throws JsonParseException, JsonMappingException, IOException {
 		log.trace("Getting: " + item + " with starting offset: " + curOffset);
 
@@ -868,8 +819,7 @@ public class RefRepository extends Repository {
 
 			log.trace(resultNode.toString());
 			if ((resultNode.has("Has Part")) && withChildren) {
-				resultNode = getChildren(resultNode, indexFile, cis,
-						oreFileSize, curPos, entries, offsets);
+				resultNode = getChildren(resultNode, indexFile, cis, oreFileSize, curPos, entries, offsets);
 			} else {
 				resultNode.remove("aggregates");
 			}
@@ -890,9 +840,8 @@ public class RefRepository extends Repository {
 	}
 
 	// Get all direct child nodes
-	private ObjectNode getChildren(ObjectNode resultNode, File indexFile,
-			CountingInputStream cis, Long oreFileSize, long curPos,
-			ArrayList<String> entries, ArrayList<Long> offsets)
+	private ObjectNode getChildren(ObjectNode resultNode, File indexFile, CountingInputStream cis, Long oreFileSize,
+			long curPos, ArrayList<String> entries, ArrayList<Long> offsets)
 			throws JsonParseException, JsonMappingException, IOException {
 
 		ArrayList<String> childIds = new ArrayList<String>();
@@ -907,8 +856,7 @@ public class RefRepository extends Repository {
 		}
 		ArrayNode aggregates = mapper.createArrayNode();
 		for (String name : childIds) {
-			aggregates.add(getItem(name, indexFile, cis, false, oreFileSize,
-					curPos, entries, offsets));
+			aggregates.add(getItem(name, indexFile, cis, false, oreFileSize, curPos, entries, offsets));
 			curPos = cis.getByteCount();
 			log.trace("curPos updated to " + curPos + " after reading: " + name);
 
@@ -924,8 +872,7 @@ public class RefRepository extends Repository {
 	// the same relative order as they are listed in the dcterms:hasPart
 	// list. If backwards skips are seen, we need to order the children
 	// according to their relative offsets before attempting to retrieve them.
-	private static long skipTo(CountingInputStream cis, long curPos, Long long1)
-			throws IOException {
+	private static long skipTo(CountingInputStream cis, long curPos, Long long1) throws IOException {
 		log.trace("Skipping to : " + long1.longValue());
 		long offset = long1.longValue() - curPos;
 		if (offset < 0) {
@@ -946,15 +893,14 @@ public class RefRepository extends Repository {
 	}
 
 	// Create the index file by parsing the oremap
-	protected static void generateIndex(InputStream ro, File descFile,
-			File indexFile) throws JsonParseException, IOException {
+	protected static void generateIndex(InputStream ro, File descFile, File indexFile)
+			throws JsonParseException, IOException {
 
 		log.debug("Generating desc and index files");
 		JsonFactory f = new MappingJsonFactory(); // reading
 		JsonParser jp = f.createParser(ro);
 
-		JsonGenerator generator = new JsonFactory().createGenerator(descFile,
-				JsonEncoding.UTF8);
+		JsonGenerator generator = new JsonFactory().createGenerator(descFile, JsonEncoding.UTF8);
 
 		JsonToken current;
 
@@ -986,8 +932,7 @@ public class RefRepository extends Repository {
 									if (!name.equals("aggregates")) {
 										log.trace("Writing: " + name);
 										generator.writeFieldName(name);
-										generator.writeTree(jp
-												.readValueAsTree());
+										generator.writeTree(jp.readValueAsTree());
 									} else {
 										report(jp, current);
 										log.trace("Skipping?");
@@ -1013,11 +958,9 @@ public class RefRepository extends Repository {
 		}
 	}
 
-	private static void indexChildren(File index, JsonParser jp)
-			throws IOException {
+	private static void indexChildren(File index, JsonParser jp) throws IOException {
 
-		JsonGenerator generator = new JsonFactory().createGenerator(index,
-				JsonEncoding.UTF8);
+		JsonGenerator generator = new JsonFactory().createGenerator(index, JsonEncoding.UTF8);
 		generator.useDefaultPrettyPrinter();
 
 		generator.writeStartObject();
