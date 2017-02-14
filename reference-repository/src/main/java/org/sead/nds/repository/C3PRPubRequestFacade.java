@@ -24,10 +24,12 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.URLEncoder;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Properties;
 
+import javax.net.ssl.SSLContext;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.commons.compress.parallel.InputStreamSupplier;
@@ -37,13 +39,15 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.impl.cookie.BasicClientCookie;
-import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
@@ -52,18 +56,15 @@ import org.json.JSONObject;
 
 public class C3PRPubRequestFacade extends PubRequestFacade {
 
-	private static final Logger log = Logger
-			.getLogger(C3PRPubRequestFacade.class);
-	
+	private static final Logger log = Logger.getLogger(C3PRPubRequestFacade.class);
+
 	private int timeout = 300;
-	private RequestConfig config = RequestConfig.custom()
-			.setConnectTimeout(timeout * 1000)
-			.setConnectionRequestTimeout(timeout * 1000)
-			.setSocketTimeout(timeout * 1000).build();
+	private RequestConfig config = RequestConfig.custom().setConnectTimeout(timeout * 1000)
+			.setConnectionRequestTimeout(timeout * 1000).setSocketTimeout(timeout * 1000).build();
 
 	private static HttpClientContext localContext = HttpClientContext.create();
-	
-	private PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+
+	private PoolingHttpClientConnectionManager cm = null;
 	protected CloseableHttpClient client;
 
 	Properties props = null;
@@ -74,22 +75,34 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 	protected JSONObject repository = null;
 	protected JSONObject oremap = null;
 
-	public C3PRPubRequestFacade(String RO_ID, Properties props) {
+	public C3PRPubRequestFacade(String RO_ID, Properties props)
+			throws NoSuchAlgorithmException, KeyManagementException {
 		this.RO_ID = RO_ID;
 		this.props = props;
+		if (props.getProperty("c3pr.address").startsWith("https")) {
+			SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+			sslContext.init(null, null, null);
+
+			SSLConnectionSocketFactory sslConnectionFactory = new SSLConnectionSocketFactory(sslContext,
+					NoopHostnameVerifier.INSTANCE);
+
+			Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
+					.register("https", sslConnectionFactory).build();
+			cm = new PoolingHttpClientConnectionManager(registry);
+		} else {
+			cm = new PoolingHttpClientConnectionManager();
+		}
 		cm.setDefaultMaxPerRoute(Repository.getNumThreads());
-		cm.setMaxTotal(Repository.getNumThreads() > 20 ? Repository
-				.getNumThreads() : 20);
-		client = HttpClients.custom().setConnectionManager(cm)
-				.setDefaultRequestConfig(config).build();
-		
+		cm.setMaxTotal(Repository.getNumThreads() > 20 ? Repository.getNumThreads() : 20);
+
+		client = HttpClients.custom().setConnectionManager(cm).setDefaultRequestConfig(config).build();
+
 	}
 
 	protected String proxyIfNeeded(String urlString) {
 
 		if (props.containsKey("proxyserver")) {
-			return props.getProperty("c3pr.address")
-					+ urlString.substring(urlString.indexOf("api"));
+			return props.getProperty("c3pr.address") + urlString.substring(urlString.indexOf("api"));
 		} else {
 			return urlString;
 		}
@@ -100,18 +113,15 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 			String c3prServer = props.getProperty("c3pr.address");
 			HttpGet getPubRequest;
 			try {
-				log.debug("Retrieving: " + c3prServer + "api/researchobjects/"
-						+ URLEncoder.encode(RO_ID, "UTF-8"));
-				getPubRequest = new HttpGet(c3prServer + "api/researchobjects/"
-						+ URLEncoder.encode(RO_ID, "UTF-8"));
+				log.debug("Retrieving: " + c3prServer + "api/researchobjects/" + URLEncoder.encode(RO_ID, "UTF-8"));
+				getPubRequest = new HttpGet(c3prServer + "api/researchobjects/" + URLEncoder.encode(RO_ID, "UTF-8"));
 
 				getPubRequest.addHeader("accept", "application/json");
 
 				CloseableHttpResponse response = client.execute(getPubRequest, getLocalContext());
 
 				if (response.getStatusLine().getStatusCode() == 200) {
-					String mapString = EntityUtils.toString(response
-							.getEntity());
+					String mapString = EntityUtils.toString(response.getEntity());
 					log.trace(mapString);
 					request = new JSONObject(mapString);
 
@@ -152,20 +162,15 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 				String c3prServer = props.getProperty("c3pr.address");
 				HttpGet getRepoRequest;
 				try {
-					log.debug("Retrieving: " + c3prServer + "api/repositories/"
-							+ URLEncoder.encode(repo, "UTF-8"));
-					getRepoRequest = new HttpGet(c3prServer
-							+ "api/repositories/"
-							+ URLEncoder.encode(repo, "UTF-8"));
+					log.debug("Retrieving: " + c3prServer + "api/repositories/" + URLEncoder.encode(repo, "UTF-8"));
+					getRepoRequest = new HttpGet(c3prServer + "api/repositories/" + URLEncoder.encode(repo, "UTF-8"));
 
 					getRepoRequest.addHeader("accept", "application/json");
 
-					CloseableHttpResponse response = client
-							.execute(getRepoRequest, getLocalContext());
+					CloseableHttpResponse response = client.execute(getRepoRequest, getLocalContext());
 
 					if (response.getStatusLine().getStatusCode() == 200) {
-						String mapString = EntityUtils.toString(response
-								.getEntity());
+						String mapString = EntityUtils.toString(response.getEntity());
 						log.trace(mapString);
 						repository = new JSONObject(mapString);
 
@@ -187,8 +192,7 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 
 	private URI getOREMapURI() {
 		try {
-			return new URI(proxyIfNeeded(request.getJSONObject("Aggregation")
-					.getString("@id")));
+			return new URI(proxyIfNeeded(request.getJSONObject("Aggregation").getString("@id")));
 		} catch (JSONException e) {
 			e.printStackTrace();
 		} catch (URISyntaxException e) {
@@ -210,8 +214,7 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 				CloseableHttpResponse response = client.execute(getMap, getLocalContext());
 
 				if (response.getStatusLine().getStatusCode() == 200) {
-					String mapString = EntityUtils.toString(response
-							.getEntity());
+					String mapString = EntityUtils.toString(response.getEntity());
 					log.trace("OREMAP: " + mapString);
 					oremap = new JSONObject(mapString);
 				}
@@ -233,8 +236,7 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 		if (bearerToken != null) {
 			// Clowder Kluge - don't add key once Auth header is accepted
 			try {
-				request = new HttpGet(new URI(url.toURL().toString() + "?key="
-						+ bearerToken));
+				request = new HttpGet(new URI(url.toURL().toString() + "?key=" + bearerToken));
 			} catch (MalformedURLException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -267,8 +269,7 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 							log.trace("Retrieved: " + uri);
 							return response.getEntity().getContent();
 						}
-						log.debug("Status: "
-								+ response.getStatusLine().getStatusCode());
+						log.debug("Status: " + response.getStatusLine().getStatusCode());
 						tries++;
 
 					} catch (ClientProtocolException e) {
@@ -279,8 +280,7 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 						// Retry if this is a potentially temporary error such
 						// as a timeout
 						tries++;
-						log.warn("Attempt# " + tries
-								+ " : Unable to retrieve file: " + uri, e);
+						log.warn("Attempt# " + tries + " : Unable to retrieve file: " + uri, e);
 						if (tries == 5) {
 							log.error("Final attempt failed for " + uri);
 						}
@@ -312,16 +312,14 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 				}
 				HttpGet getPerson;
 				try {
-					getPerson = new HttpGet(c3prServer + "api/people/"
-							+ URLEncoder.encode(people[i], "UTF-8"));
+					getPerson = new HttpGet(c3prServer + "api/people/" + URLEncoder.encode(people[i], "UTF-8"));
 
 					getPerson.addHeader("accept", "application/json");
 					log.trace("getPerson created" + getPerson.getURI());
 					CloseableHttpResponse response = client.execute(getPerson, getLocalContext());
 
 					if (response.getStatusLine().getStatusCode() == 200) {
-						String mapString = EntityUtils.toString(response
-								.getEntity());
+						String mapString = EntityUtils.toString(response.getEntity());
 						log.trace("Expanded: " + mapString);
 						peopleArray.put(new JSONObject(mapString));
 
@@ -355,16 +353,14 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 
 		String c3prServer = props.getProperty("c3pr.address");
 		try {
-			String statusUrl = c3prServer + "api/researchobjects/"
-					+ URLEncoder.encode(RO_ID, "UTF-8") + "/status";
+			String statusUrl = c3prServer + "api/researchobjects/" + URLEncoder.encode(RO_ID, "UTF-8") + "/status";
 
 			log.debug("Posting status to: " + statusUrl);
 			HttpPost postStatus = new HttpPost(statusUrl);
 
 			postStatus.addHeader("accept", MediaType.APPLICATION_JSON);
-			String statusString = "{\"reporter\":\"" + Repository.getID()
-					+ "\", \"stage\":\"" + stage + "\", \"message\":\""
-					+ message + "\"}";
+			String statusString = "{\"reporter\":\"" + Repository.getID() + "\", \"stage\":\"" + stage
+					+ "\", \"message\":\"" + message + "\"}";
 			StringEntity status = new StringEntity(statusString);
 			log.trace("Status: " + statusString);
 			postStatus.addHeader("content-type", MediaType.APPLICATION_JSON);
@@ -375,8 +371,7 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 			if (response.getStatusLine().getStatusCode() == 200) {
 				log.debug("Status Successfully posted");
 			} else {
-				log.warn("Failed to post status, response code: "
-						+ response.getStatusLine().getStatusCode());
+				log.warn("Failed to post status, response code: " + response.getStatusLine().getStatusCode());
 			}
 			// Must consume entity to allow connection to be released
 			// If this line is not here, the third try to send status will
@@ -406,13 +401,10 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 		}
 
 		if (echoToConsole) {
-			System.out
-					.println("*********************Status Message******************************");
-			System.out.println("Reporter: " + Repository.getID() + ", Stage: "
-					+ stage);
+			System.out.println("*********************Status Message******************************");
+			System.out.println("Reporter: " + Repository.getID() + ", Stage: " + stage);
 			System.out.println("Message Text: " + message);
-			System.out
-					.println("*****************************************************************");
+			System.out.println("*****************************************************************");
 		}
 	}
 
@@ -421,7 +413,7 @@ public class C3PRPubRequestFacade extends PubRequestFacade {
 	}
 
 	public void setLocalContext(HttpClientContext lc) {
-		localContext =lc;
+		localContext = lc;
 	}
 
 }
