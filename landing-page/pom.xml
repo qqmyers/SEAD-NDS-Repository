@@ -14,7 +14,7 @@
 	</parent>
 
 	<build>
-		<finalName>referencerepository</finalName>
+		<finalName>refrepository</finalName>
 		<plugins>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
