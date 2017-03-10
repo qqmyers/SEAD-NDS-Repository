@@ -525,7 +525,7 @@ public class BagGenerator {
 				resourceUsed[index] = true;
 				// add item
 				String dataUrl = (String) child.get("similarTo");
-				String title = (String) child.get("Title");
+				String title = (String) child.get("Label"); //Labels were filenames and should make usable paths, whereas titles may have non-standard chars
 				if (titles.contains(title)) {
 					log.warn("**** Multiple items with the same title in: " + currentPath);
 					log.warn("**** Will cause failure in hash and size validation.");

@@ -424,8 +424,7 @@ seadData.loadChild = function loadChild(agg, childId, id, parentid, parentpath) 
 					fileSize = child.size;
 				}
 				$('#datatable tbody').append(
-						getDataRow(parentid, id, child.Title, parentpath
-								+ '%2F' + child.Title, fileSize));
+						getDataRow(parentid, id, child.Title, child.similarTo, fileSize));
 			}
 		}
 	}
@@ -468,13 +467,11 @@ function getDataRow(parentId, childId, name, uri, size) {
 
 	newRow.append($('<td/>').append(
 			$('<span/>').addClass('file').append(
-					$('<a/>').attr('href',
-							'./api/researchobjects/' + id + '/data/' + uri)
+					$('<a/>').attr('href', uri)
 							.attr('target', '_blank').attr(
 									"onclick",
 									"ga('send', 'event', '" + aggTitle + '::'
-											+ id + "', 'File Download', '" + id
-											+ "/data/" + uri + "');")
+											+ id + "', 'File Download', '" + uri + "');")
 							.html(name))));
 
 	newRow.append($('<td/>').html(filesize(parseInt(size), {
@@ -565,9 +562,7 @@ function activateTable() {
 																	node.id,
 																	i,
 																	child.Title,
-																	parentpath
-																			+ '%2F'
-																			+ child.Title,
+																	child.similarTo,
 																	fileSize));
 												}
 												if (i % 100 == 0) {
