@@ -481,7 +481,7 @@ public class BagGenerator {
 
 	public static String getValidName(String bagName) {
 		// Create known-good filename
-		return bagName.replaceAll("\\W+", "_");
+		return bagName.replaceAll("\\W", "_");
 	}
 
 	private void processContainer(JSONObject item, String currentPath) {
