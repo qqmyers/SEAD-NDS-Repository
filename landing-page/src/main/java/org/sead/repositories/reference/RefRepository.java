@@ -44,6 +44,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -370,7 +371,7 @@ public class RefRepository extends Repository {
 				}
 			};
 
-			return Response.ok(stream).build();
+			return Response.ok(stream).header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_TYPE + "; charset=utf-8").build();
 		} catch (IOException e) {
 			e.printStackTrace();
 			return Response.serverError().build();
@@ -386,7 +387,7 @@ public class RefRepository extends Repository {
 	 */
 
 	@Path("/researchobjects/{id}/metadata")
-	@Produces(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
 	@GET
 	public Response getResourceMetadata(@PathParam(value = "id") String id) {
 		String path = getDataPathTo(id);
@@ -412,7 +413,7 @@ public class RefRepository extends Repository {
 				log.warn("Null item returned");
 			}
 
-			return Response.ok(resultNode.toString()).build();
+			return Response.ok(resultNode.toString()).header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_TYPE + "; charset=utf-8").build();
 		} catch (JsonParseException e) {
 			log.error(e);
 			e.printStackTrace();
@@ -536,11 +537,15 @@ public class RefRepository extends Repository {
 		String bagNameRoot = getBagNameRoot(id);
 		File result = new File(path, bagNameRoot + ".zip");
 		StreamingOutput stream = null;
-
+		log.debug("Opening: " + result.getPath());
 		try {
+		
 			final ZipFile zf = new ZipFile(result);
+			log.debug("Have zipfile: " + result.getPath());
 			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot + "/data/" + datapath);
+			log.debug("Looking for: " + bagNameRoot + "/data/" + datapath);
 			if (archiveEntry1 != null) {
+				log.debug("Found: " + bagNameRoot + "/data/" + datapath);
 				final InputStream inputStream = new BufferedInputStream(zf.getInputStream(archiveEntry1));
 
 				stream = new StreamingOutput() {
@@ -557,6 +562,7 @@ public class RefRepository extends Repository {
 			e.printStackTrace();
 		}
 		if (stream == null) {
+			log.error("Stream is null");
 			return Response.serverError().build();
 		}
 
