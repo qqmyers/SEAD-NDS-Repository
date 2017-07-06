@@ -423,6 +423,11 @@ seadData.loadChild = function loadChild(agg, childId, id, parentid, parentpath) 
 				if (fileSize == null) {
 					fileSize = child.size;
 				}
+				// Clowder ~1.3.0#13 kludge - Size changes from a string to an object 
+				// with a $numberLong element when size is above some GB limit (2GB? 4GB?)
+				if(typeof(fileSize['$numberLong']) !="undefined")
+                    fileSize = fileSize['$numberLong'];
+
 				$('#datatable tbody').append(
 						getDataRow(parentid, id, child.Title, child.similarTo, fileSize));
 			}
