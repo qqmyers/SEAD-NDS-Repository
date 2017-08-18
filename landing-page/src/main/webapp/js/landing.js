@@ -63,16 +63,18 @@ seadData.fillInMetadata = function(describes) {
 
 	$('#contacts').append(seadData.formatPeople(describes.Contact));
 	$('#abstract').append(
-			$('<pre/>').append(seadData.formatStringOrArray(describes.Abstract)));
+			$('<pre/>')
+					.append(seadData.formatStringOrArray(describes.Abstract)));
 
 	var p = seadData.formatPeople(describes.Creator);
 	$('#creators').append(p);
 	$('#ID').append($('<div/>').text(describes["External Identifier"]));
-	
-    if(describes.Purpose&&(describes.Purpose.startsWith("Testing"))) {
-        $('#extID .mlabel').text("Persistent Identifier (Test)");
-        $('#ID').append($('<p/>').text('Temporary DOI').attr('class','red-rectangle'));
-    }
+
+	if (describes.Purpose && (describes.Purpose.startsWith("Testing"))) {
+		$('#extID .mlabel').text("Persistent Identifier (Test)");
+		$('#ID').append(
+				$('<p/>').text('Temporary DOI').attr('class', 'red-rectangle'));
+	}
 
 	$('#keywords').append(seadData.formatStringOrArray(describes.Keyword));
 	var lic = describes.License;
@@ -423,13 +425,17 @@ seadData.loadChild = function loadChild(agg, childId, id, parentid, parentpath) 
 				if (fileSize == null) {
 					fileSize = child.size;
 				}
-				// Clowder ~1.3.0#13 kludge - Size changes from a string to an object 
-				// with a $numberLong element when size is above some GB limit (2GB? 4GB?)
-				if(typeof(fileSize['$numberLong']) !="undefined")
-                    fileSize = fileSize['$numberLong'];
-
-				$('#datatable tbody').append(
-						getDataRow(parentid, id, child.Title, child.similarTo, fileSize));
+				// Clowder ~1.3.0#13 kludge - Size changes from a string to an
+				// object
+				// with a $numberLong element when size is above some GB limit
+				// (2GB? 4GB?)
+				if (typeof (fileSize['$numberLong']) != "undefined")
+					fileSize = fileSize['$numberLong'];
+				if (!(child.Title === 'SEADImport.ReadMe.txt')) {
+					$('#datatable tbody').append(
+							getDataRow(parentid, id, child.Title,
+									child.similarTo, fileSize));
+				}
 			}
 		}
 	}
@@ -472,11 +478,10 @@ function getDataRow(parentId, childId, name, uri, size) {
 
 	newRow.append($('<td/>').append(
 			$('<span/>').addClass('file').append(
-					$('<a/>').attr('href', uri)
-							.attr('target', '_blank').attr(
-									"onclick",
-									"ga('send', 'event', '" + aggTitle + '::'
-											+ id + "', 'File Download', '" + uri + "');")
+					$('<a/>').attr('href', uri).attr('target', '_blank').attr(
+							"onclick",
+							"ga('send', 'event', '" + aggTitle + '::' + id
+									+ "', 'File Download', '" + uri + "');")
 							.html(name))));
 
 	newRow.append($('<td/>').html(filesize(parseInt(size), {
@@ -562,13 +567,15 @@ function activateTable() {
 													if (fileSize == null) {
 														fileSize = child.size;
 													}
-													rows = rows
-															.add(getDataRow(
-																	node.id,
-																	i,
-																	child.Title,
-																	child.similarTo,
-																	fileSize));
+													if (!(child.Title === 'SEADImport.ReadMe.txt')) {
+														rows = rows
+																.add(getDataRow(
+																		node.id,
+																		i,
+																		child.Title,
+																		child.similarTo,
+																		fileSize));
+													}
 												}
 												if (i % 100 == 0) {
 													$(
