@@ -61,6 +61,7 @@ import org.sead.nds.repository.BagGenerator;
 import org.sead.nds.repository.C3PRPubRequestFacade;
 import org.sead.nds.repository.PubRequestFacade;
 import org.sead.nds.repository.Repository;
+import org.sead.repositories.reference.util.OREInputStreamHolder;
 import org.sead.repositories.reference.util.RefLocalContentProvider;
 import org.sead.repositories.reference.util.ReferenceLinkRewriter;
 
@@ -371,7 +372,8 @@ public class RefRepository extends Repository {
 				}
 			};
 
-			return Response.ok(stream).header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_TYPE + "; charset=utf-8").build();
+			return Response.ok(stream)
+					.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_TYPE + "; charset=utf-8").build();
 		} catch (IOException e) {
 			e.printStackTrace();
 			return Response.serverError().build();
@@ -406,14 +408,14 @@ public class RefRepository extends Repository {
 			File oremap = getOREMapFile(id);
 			// Find/open base ORE map file
 			// Note - limited to maxint size for oremap file size
-			cis = new CountingInputStream(
-					new BufferedInputStream(new FileInputStream(oremap), Math.min((int) oremap.length(), 1000000)));
-			JsonNode resultNode = getAggregation(id, indexFile, cis, true, oremap.length());
+			OREInputStreamHolder oreSH = new OREInputStreamHolder(oremap);
+			JsonNode resultNode = getAggregation(id, indexFile, oreSH, true, oremap.length());
 			if (resultNode == null) {
 				log.warn("Null item returned");
 			}
 
-			return Response.ok(resultNode.toString()).header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_TYPE + "; charset=utf-8").build();
+			return Response.ok(resultNode.toString())
+					.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_TYPE + "; charset=utf-8").build();
 		} catch (JsonParseException e) {
 			log.error(e);
 			e.printStackTrace();
@@ -494,10 +496,9 @@ public class RefRepository extends Repository {
 			// Find/open base ORE map file
 			// Note - limited to maxint size for oremap file size
 			File map = getOREMapFile(id);
-			cis = new CountingInputStream(
-					new BufferedInputStream(new FileInputStream(map), Math.min((int) map.length(), 1000000)));
+			OREInputStreamHolder oreSH = new OREInputStreamHolder(map);
 
-			JsonNode resultNode = getItem(dataID, indexFile, cis, true, map.length());
+			JsonNode resultNode = getItem(dataID, indexFile, oreSH, true, map.length());
 			if (resultNode == null) {
 				log.warn("Null item returned");
 			}
@@ -539,7 +540,7 @@ public class RefRepository extends Repository {
 		StreamingOutput stream = null;
 		log.debug("Opening: " + result.getPath());
 		try {
-		
+
 			final ZipFile zf = new ZipFile(result);
 			log.debug("Have zipfile: " + result.getPath());
 			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot + "/data/" + datapath);
@@ -695,11 +696,9 @@ public class RefRepository extends Repository {
 
 	}
 
-	private JsonNode getAggregation(String id, File indexFile, CountingInputStream cis, boolean withChildren,
+	private JsonNode getAggregation(String id, File indexFile, OREInputStreamHolder oreSH, boolean withChildren,
 			Long oreFileSize) throws JsonParseException, JsonMappingException, IOException {
 		log.debug("Getting Aggregation");
-
-		long curPos = 0;
 
 		// Always need to generate these
 		ArrayList<String> entries = new ArrayList<String>();
@@ -734,7 +733,7 @@ public class RefRepository extends Repository {
 		log.trace(resultNode.toString());
 		if ((resultNode.has("Has Part")) && withChildren) {
 
-			resultNode = getChildren(resultNode, indexFile, cis, oreFileSize, curPos, entries, offsets);
+			resultNode = getChildren(resultNode, indexFile, oreSH, oreFileSize, entries, offsets);
 		} else {
 			resultNode.remove("aggregates");
 		}
@@ -744,19 +743,19 @@ public class RefRepository extends Repository {
 
 	// Get the first item, before the entries and offsets lists are created
 	// (they are used to get children efficiently)
-	private JsonNode getItem(String item, File indexFile, CountingInputStream cis, boolean withChildren,
+	private JsonNode getItem(String item, File indexFile, OREInputStreamHolder oreSH, boolean withChildren,
 			long oreFileSize) throws JsonParseException, JsonMappingException, IOException {
-		return getItem(item, indexFile, cis, withChildren, oreFileSize, 0, null, null);
+		return getItem(item, indexFile, oreSH, withChildren, oreFileSize, null, null);
 	}
 
 	// Get an item as a child using the existing (if not null) entries and
 	// offset lists
-	private JsonNode getItem(String item, File indexFile, CountingInputStream cis, boolean withChildren,
-			Long oreFileSize, long curOffset, ArrayList<String> entries, ArrayList<Long> offsets)
+	private JsonNode getItem(String item, File indexFile, OREInputStreamHolder oreSH, boolean withChildren,
+			Long oreFileSize, ArrayList<String> entries, ArrayList<Long> offsets)
 			throws JsonParseException, JsonMappingException, IOException {
-		log.trace("Getting: " + item + " with starting offset: " + curOffset);
+		log.trace("Getting: " + item + " with starting offset: " + oreSH.getCurPos());
 
-		long curPos = curOffset;
+		long curPos = oreSH.getCurPos();
 
 		if ((entries == null) || (offsets == null)) {
 			entries = new ArrayList<String>();
@@ -803,10 +802,11 @@ public class RefRepository extends Repository {
 		} else {
 			estSize = (int) (oreFileSize - offsets.get(index));
 		}
-		curPos += skipTo(cis, curPos, offsets.get(index));
+		skipTo(oreSH, offsets.get(index));
+
 		log.trace("Current Pos updated to : " + curPos);
 		b = new byte[estSize];
-		bytesRead = cis.read(b);
+		bytesRead = oreSH.getCis().read(b);
 		log.trace("Read " + bytesRead + " bytes");
 		if (bytesRead == estSize) {
 			log.trace("Read: " + new String(b));
@@ -820,12 +820,12 @@ public class RefRepository extends Repository {
 				log.debug(e.getMessage());
 			}
 
-			curPos += bytesRead;
-			log.trace("curPos: " + curPos + " : count: " + cis.getByteCount());
+			oreSH.setCurPos(oreSH.getCurPos() + bytesRead);
+			log.trace("curPos: " + oreSH.getCurPos() + " : count: " + oreSH.getCis().getByteCount());
 
 			log.trace(resultNode.toString());
 			if ((resultNode.has("Has Part")) && withChildren) {
-				resultNode = getChildren(resultNode, indexFile, cis, oreFileSize, curPos, entries, offsets);
+				resultNode = getChildren(resultNode, indexFile, oreSH, oreFileSize, entries, offsets);
 			} else {
 				resultNode.remove("aggregates");
 			}
@@ -846,8 +846,8 @@ public class RefRepository extends Repository {
 	}
 
 	// Get all direct child nodes
-	private ObjectNode getChildren(ObjectNode resultNode, File indexFile, CountingInputStream cis, Long oreFileSize,
-			long curPos, ArrayList<String> entries, ArrayList<Long> offsets)
+	private ObjectNode getChildren(ObjectNode resultNode, File indexFile, OREInputStreamHolder oreSH, Long oreFileSize,
+			ArrayList<String> entries, ArrayList<Long> offsets)
 			throws JsonParseException, JsonMappingException, IOException {
 
 		ArrayList<String> childIds = new ArrayList<String>();
@@ -862,15 +862,13 @@ public class RefRepository extends Repository {
 		}
 		ArrayNode aggregates = mapper.createArrayNode();
 		for (String name : childIds) {
-			aggregates.add(getItem(name, indexFile, cis, false, oreFileSize, curPos, entries, offsets));
-			curPos = cis.getByteCount();
-			log.trace("curPos updated to " + curPos + " after reading: " + name);
+			aggregates.add(getItem(name, indexFile, oreSH, false, oreFileSize, entries, offsets));
+			log.trace("curPos updated to " + oreSH.getCurPos() + " after reading: " + name);
 
 		}
 		log.trace("Child Ids: " + childIds.toString());
 		resultNode.set("aggregates", aggregates);
 		return resultNode;
-
 	}
 
 	// Skip forward as needed through the oremap to find the next child
@@ -878,24 +876,25 @@ public class RefRepository extends Repository {
 	// the same relative order as they are listed in the dcterms:hasPart
 	// list. If backwards skips are seen, we need to order the children
 	// according to their relative offsets before attempting to retrieve them.
-	private static long skipTo(CountingInputStream cis, long curPos, Long long1) throws IOException {
-		log.trace("Skipping to : " + long1.longValue());
-		long offset = long1.longValue() - curPos;
+	private static void skipTo(OREInputStreamHolder oreSH, Long skip) throws IOException {
+		log.trace("Skipping to : " + skip.longValue());
+		long offset = skip.longValue() - oreSH.getCurPos();
 		if (offset < 0) {
-			log.error("Backwards jump attempted");
-			throw new IOException("Backward Skip: failed");
+			offset += oreSH.getCurPos();
+			oreSH.reset();
+			log.warn("Backwards jump - resetting stream");
 		}
-		log.trace("At: " + curPos + " going forward by " + offset);
+		log.trace("At: " + oreSH.getCurPos() + " going forward by " + offset);
 		long curskip = 0;
 		while (curskip < offset) {
-			long inc = cis.skip(offset - curskip);
+			long inc = oreSH.getCis().skip(offset - curskip);
 			if (inc == -1) {
 				log.error("End of Stream");
 				throw new IOException("End of Stream");
 			}
 			curskip += inc;
 		}
-		return offset;
+		oreSH.setCurPos(oreSH.getCurPos() + offset);
 	}
 
 	// Create the index file by parsing the oremap
