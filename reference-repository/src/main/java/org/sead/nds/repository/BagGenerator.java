@@ -74,6 +74,7 @@ public class BagGenerator {
 											// is for production
 
 	private String hashtype = null;
+	private boolean ignorehashes = false;
 
 	private long dataCount = 0l;
 	private long totalDataSize = 0l;
@@ -92,6 +93,10 @@ public class BagGenerator {
 		RO = ro;
 	}
 
+	public void setIgnoreHashes(boolean val) {
+		ignorehashes = val;
+	}
+	
 	public void setLinkRewriter(LinkRewriter newRewriter) {
 		linkRewriter = newRewriter;
 	}
@@ -561,6 +566,10 @@ public class BagGenerator {
 					}
 					sha1Map.put(childPath, childHash);
 				}
+				if((hashtype==null) | ignorehashes) {
+					//Pick sha512 when ignoring hashes or none exist
+					hashtype = "SHA512 Hash";
+				}
 				try {
 					boolean success = false;
 					if ((lcProvider != null) && (childHash != null)) {
@@ -568,6 +577,33 @@ public class BagGenerator {
 						success = createFileFromLocalSource(childPath, hashtype, childHash);
 					}
 					if (!success) {
+						if((childHash==null)| ignorehashes) {
+							//Generate missing hashInputStream inputStream = null;
+							InputStream inputStream = null;
+							try {
+								inputStream = RO.getInputStreamSupplier(dataUrl).get();
+								
+								if (hashtype != null) {
+									if (hashtype.equals("SHA1 Hash")) {
+										childHash = DigestUtils.sha1Hex(inputStream);
+									} else if (hashtype.equals("SHA512 Hash")) {
+										childHash = DigestUtils.sha512Hex(inputStream);
+									}
+								}
+								
+							} catch (IOException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							} finally {
+								IOUtils.closeQuietly(inputStream);
+							}
+							if(childHash!=null) {
+								child.put(hashtype, childHash);
+								sha1Map.put(childPath, childHash);
+							} else {
+								log.warn("Unable to calculate a " + hashtype + " for " + dataUrl);
+							}
+						}
 						log.debug("Requesting: " + childPath + " from " + dataUrl);
 						createFileFromURL(childPath, dataUrl);
 					}

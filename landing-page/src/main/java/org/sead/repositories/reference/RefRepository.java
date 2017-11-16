@@ -124,6 +124,7 @@ public class RefRepository extends Repository {
 	private static String localRequest = null;
 	private static String localContentSource = null;
 	private static boolean validateOnly = false;
+	private static boolean ignoreHashes = false;
 
 	public static void main(String[] args) {
 		PropertyConfigurator.configure("./log4j.properties");
@@ -151,6 +152,9 @@ public class RefRepository extends Repository {
 						break;
 					case 'v':
 						validateOnly = true;
+						break;
+					case 'i':
+						ignoreHashes=true;
 						break;
 					default:
 						printUsage();
@@ -180,6 +184,9 @@ public class RefRepository extends Repository {
 			log.info("Validation Complete.");
 			System.exit(0);
 			;
+		}
+		if(ignoreHashes) {
+			bg.setIgnoreHashes(true);
 		}
 		// Request human approval if needed - will send a fail status and
 		// exit if request is denied
@@ -216,6 +223,9 @@ public class RefRepository extends Repository {
 				"Usage:  <RO Identifier> <-l <optional local pubRequest file (path to JSON document)>> <-r <local Content Source RO ID>> <-v>");
 		System.out.println(
 				"-v - validateOnly - assumes a zip file for this RO ID exists and will attempt to validate the stored files w.r.t. the hash values in the oremap.");
+		System.out.println(
+				"-i - ignoreHashes - generate new hashes for all content (work-around to deal with Bad Hashes from Clowder before 12/17.");
+		
 		System.out.println(
 				"Note: RO identifier is always sent and must match the identifier in any local pub Request file used.");
 		System.out.println("Note: A local content source will override info sent as an alternateOf Preference.");

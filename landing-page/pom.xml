@@ -54,7 +54,7 @@
 		<repository>
 			<id>refrepo.local</id>
 			<name>refrepo</name>
-			<url>file:c:/users/Jim/git/sead2/sead-nds-repository/reference-repository/repo</url>
+			<url>file:d:/git/sead-NDS-Repository/reference-repository/repo</url>
 		</repository>
 		<!-- Replace local repo with dataone when they update to 1.0.2 <repository> 
 			<id>dataone.org</id> <url>http://dev-testing.dataone.org/maven</url> <releases> 
@@ -179,7 +179,7 @@
 			<dependency>
 				<groupId>org.sead</groupId>
 				<artifactId>ref-repo</artifactId>
-				<version>1.0.39</version>
+				<version>1.0.44</version>
 				<type>jar</type>
 			</dependency>
 			<dependency>
