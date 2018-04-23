@@ -55,9 +55,37 @@ seadData.buildGrid = function(describes) {
 }
 
 seadData.fillInMetadata = function(describes) {
+	//Header and structured schema.org metadata:
+	$('head').append('<meta name="DC.identifier" content="' + describes["External Identifier"] + '" />');
+	$('head').append('<meta name="DC.type" content="Dataset" /><meta name="DC.title" content="' + describes.Title + '" />');
+	
+	var pubdate = describes["Publication Date"];
+	
+	$('head').append('<meta name="DC.date" content="' + pubdate + '" /><meta name="DC.publisher" content="SEAD" />');
+	$('head').append('<meta name="DC.description" content="' + describes.Abstract + '" />');
+			
+	
+						
+	$('head').append('<meta name="DC.creator" content="' + seadData.formatPeopleString(describes.Creator) + '" />');
+	$('head').append('<meta name="DC.subject" content="Scientific Research" />');
+	var schemald= {"@context":"http://schema.org",
+			       "@type":"Dataset",
+			       "identifier": describes["External Identifier"],
+			       "name":describes.Title,
+			       "author":seadData.formatPeopleMetadata(describes.Creator),
+			       "datePublished":pubdate,
+			       "description":describes.Abstract,
+			       "keywords":seadData.formatStringOrArray(describes.Keyword),
+			       "schemaVersion":"https://schema.org/version/3.3",
+			       "license":{"@type":"Dataset","URL":describes.License},
+	               "includedInDataCatalog":{"@type":"DataCatalog","name":"SEAD","url":"https://sead2.ncsa.illinois.edu"},
+	               "provider":{"@type":"Organization","name":"http://www.nationaldataservice.org/"}};
+    $('head').append('<script type="application/ld+json">' + JSON.stringify(schemald) + '</script>');
+	
+	//Body contents
 	$('#Title').append(describes.Title);
 
-	var pubdate = describes["Publication Date"];
+	
 
 	$('#Date').append(pubdate);
 
@@ -65,9 +93,8 @@ seadData.fillInMetadata = function(describes) {
 	$('#abstract').append(
 			$('<pre/>')
 					.append(seadData.formatStringOrArray(describes.Abstract)));
-
-	var p = seadData.formatPeople(describes.Creator);
-	$('#creators').append(p);
+	var creators = seadData.formatPeople(describes.Creator);
+	$('#creators').append(creators);
 	$('#ID').append($('<div/>').text(describes["External Identifier"]));
 
 	if (describes.Purpose && (describes.Purpose.startsWith("Testing"))) {
@@ -230,12 +257,6 @@ seadData.formatStringOrArray = function(words) {
 			p = $('<div>');
 			for (var i = 0; i < words.length; i++) {
 				var k = words[i];
-				// Kludge for 1.5 until it removes tag ID info
-				// var index = k.indexOf("tag:cet.ncsa.uiuc.edu,2008:/tag#");
-				// if (index != -1) {
-				// k = k.substring(index + 32);
-				// k = k.replace(/\+/g, ' ');
-				// }
 				if (i > 0) {
 					k = ", " + k;
 				}
@@ -265,6 +286,57 @@ seadData.formatPerson = function(person) {
 		}
 	}
 }
+
+seadData.formatPeopleString = function(people) {
+	var p = [];
+	if (Array.isArray(people)) {
+		for (var i = 0; i < people.length; i++) {
+			p[i]=(seadData.formatPersonString(people[i]));
+		}
+	} else {
+		p[0] = seadData.formatPersonString(people);
+	}
+	return p.join(';');
+}
+
+seadData.formatPersonString = function(person) {
+	if (typeof person == 'string') {
+		return person;
+	} else {
+		if (person) {
+			return person.familyName + ', ' + person.givenName);
+		}
+	}
+}
+
+seadData.formatPeopleMetadata = function(people) {
+	var p = [];
+	if (Array.isArray(people)) {
+		for (var i = 0; i < people.length; i++) {
+			p[i]=(seadData.formatPersonMetadata(people[i]));
+		}
+	} else {
+		p[0] = seadData.formatPersonMetadata(people);
+	}
+	return '[' + p.join(',') + ']';
+}
+
+seadData.formatPersonMetadata = function(person) {
+	if (typeof person == 'string') {
+		return '{"name":"' + person + '"}';
+	} else {
+		if (person) {
+			var metadata = '{"name":"' + person.familyName + ', ' + person.givenName + '", "@id":"' + person['@id'] +'"';
+			if(person.email!=null) {
+				metadata = metadata + ',"email":"' + person.email + '"}';
+			} else {
+				metadata = metadata + '}';
+			}
+		}	
+	}
+	return metadata;
+}
+
 
 var aggTitle = "";
 
