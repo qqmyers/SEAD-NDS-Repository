@@ -6,24 +6,23 @@
 
 	<display-name>SEAD Reference Repository</display-name>
 
-   <!-- Listener needed for Tomcat6/servlets 2.5>
-   <  -->
-   <listener>
-        <listener-class>
-             org.sead.repositories.reference.RepoContextListener
-        </listener-class>
-   </listener>
+	<!-- Listener needed for Tomcat6/servlets 2.5> < -->
+	<listener>
+		<listener-class>
+			org.sead.repositories.reference.RepoContextListener
+		</listener-class>
+	</listener>
 
-  <servlet>
-    <servlet-name>Log4JInitServlet</servlet-name>
-    <servlet-class>org.sead.repositories.reference.util.Log4JInitServlet</servlet-class>
-    <init-param>
-      <param-name>log4j-properties-location</param-name>
-      <param-value>WEB-INF/classes/log4j.properties</param-value>
-    </init-param>
-    <load-on-startup>1</load-on-startup>
-  </servlet>
-  
+	<servlet>
+		<servlet-name>Log4JInitServlet</servlet-name>
+		<servlet-class>org.sead.repositories.reference.util.Log4JInitServlet</servlet-class>
+		<init-param>
+			<param-name>log4j-properties-location</param-name>
+			<param-value>WEB-INF/classes/log4j.properties</param-value>
+		</init-param>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+
 	<servlet>
 		<servlet-name>refrepository</servlet-name>
 		<servlet-class>com.sun.jersey.spi.container.servlet.ServletContainer</servlet-class>
@@ -40,6 +39,10 @@
 		<load-on-startup>1</load-on-startup>
 	</servlet>
 
+	<servlet-mapping>
+		<servlet-name>refrepository</servlet-name>
+		<url-pattern>/sitemap.txt</url-pattern>
+	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>refrepository</servlet-name>
 		<url-pattern>/api/*</url-pattern>

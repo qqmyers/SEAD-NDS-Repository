@@ -75,7 +75,7 @@ seadData.fillInMetadata = function(describes) {
 			       "author":seadData.formatPeopleMetadata(describes.Creator),
 			       "datePublished":pubdate,
 			       "description":describes.Abstract,
-			       "keywords":seadData.formatStringOrArray(describes.Keyword),
+			       "keywords":describes.Keyword,
 			       "schemaVersion":"https://schema.org/version/3.3",
 			       "license":{"@type":"Dataset","URL":describes.License},
 	               "includedInDataCatalog":{"@type":"DataCatalog","name":"SEAD","url":"https://sead2.ncsa.illinois.edu"},
@@ -104,6 +104,10 @@ seadData.fillInMetadata = function(describes) {
 	}
 
 	$('#keywords').append(seadData.formatStringOrArray(describes.Keyword));
+
+	$('#citation').append(seadData.formatPeopleString(describes.Creator) + ", " + pubdate + ", \"" + describes.Title + "\", " + 
+               "<span id='publisher'/>, " + describes["External Identifier"]);
+
 	var lic = describes.License;
 
 	if (lic != null) {
@@ -235,6 +239,7 @@ seadData.addDownloadLinks = function(describes) {
 							$('<div/>').attr('id', 'map').attr('class',
 									'btn btn-primary col-xs-6').text(
 									'Download Metadata Only')));
+	$('#manifest').append(($('<a/>').attr('href', uriRoot + seadData.getId() + '/manifest')).attr('target', '_blank').append('File Manifest Page.'));
 }
 
 seadData.formatPeople = function(people) {
@@ -304,7 +309,7 @@ seadData.formatPersonString = function(person) {
 		return person;
 	} else {
 		if (person) {
-			return person.familyName + ', ' + person.givenName);
+			return person.familyName + ', ' + person.givenName;
 		}
 	}
 }
@@ -372,6 +377,7 @@ seadData.init = function() {
 						$('title').text(repojson.repositoryName);
 						$('#heading').text(repojson.repositoryName);
 						$('#about').text("About: " + repojson.repositoryName);
+						$('#publisher').text(repojson.repositoryName);
 						$('#repo').text(repojson.repositoryName).attr('href',
 								repojson.repositoryURL);
 						if (repojson.subject) {
