@@ -363,7 +363,7 @@ public class RefRepository extends Repository {
     @Produces(MediaType.TEXT_HTML)
     @GET
     public Response getLandingPage(@PathParam(value = "id") String id) {
-        File input = new File("../landing.html");
+        InputStream input = getClass().getResourceAsStream("/../../landing.html");
         File descFile;
         String output = null;
         try {
@@ -372,9 +372,10 @@ public class RefRepository extends Repository {
             InputStream is = new FileInputStream(descFile);
             ObjectNode descriptionNode = (ObjectNode) mapper.readTree(is);
             IOUtils.closeQuietly(is);
+
             Document doc = Jsoup.parse(input, "UTF-8",
                     getProps().getProperty("repo.landing.base") + "/researchobjects/" + id);
-            Element head = doc.getElementById("head");
+            Element head = doc.head();
 
             // Header and structured schema.org metadata:
             head.append("<meta name=\"DC.identifier\" content=\"" + descriptionNode.get("External Identifier").asText()
