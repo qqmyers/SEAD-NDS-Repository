@@ -22,21 +22,18 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Properties;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.sead.nds.repository.C3PRPubRequestFacade;
 import org.sead.repositories.reference.util.SEADAuthenticator;
-
-import com.sun.net.httpserver.HttpContext;
 
 /**
  * This class overrides the method to retrieve a local pub request (allowing
@@ -49,7 +46,7 @@ import com.sun.net.httpserver.HttpContext;
  */
 public class RefRepoLocalPubRequestFacade extends C3PRPubRequestFacade {
 
-	private static final Logger log = Logger
+	private static final Logger log = LogManager
 			.getLogger(RefRepoLocalPubRequestFacade.class);
 
 	private String requestFilePath = null;

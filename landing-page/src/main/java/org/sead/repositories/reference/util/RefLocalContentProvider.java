@@ -35,7 +35,8 @@ import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 import org.apache.commons.compress.utils.IOUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.sead.nds.repository.util.LocalContentProvider;
 import org.sead.repositories.reference.RefRepository;
 
@@ -47,7 +48,7 @@ public class RefLocalContentProvider extends LocalContentProvider {
 
 	private ZipFile zf = null;
 
-	private static final Logger log = Logger
+	private static final Logger log = LogManager
 			.getLogger(RefLocalContentProvider.class);
 
 	private String hashtype = null;

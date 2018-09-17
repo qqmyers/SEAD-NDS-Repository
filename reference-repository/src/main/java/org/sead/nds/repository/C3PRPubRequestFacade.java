@@ -49,14 +49,15 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 public class C3PRPubRequestFacade extends PubRequestFacade {
 
-	private static final Logger log = Logger.getLogger(C3PRPubRequestFacade.class);
+	private static final Logger log = LogManager.getLogger(C3PRPubRequestFacade.class);
 
 	private int timeout = 300;
 	private RequestConfig config = RequestConfig.custom().setConnectTimeout(timeout * 1000)

@@ -24,10 +24,11 @@ import java.util.zip.ZipException;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
-import org.apache.log4j.Logger;
 import org.sead.nds.repository.BagGenerator;
 
 import org.apache.commons.compress.utils.IOUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * @author Jim
@@ -35,7 +36,7 @@ import org.apache.commons.compress.utils.IOUtils;
  */
 public class ValidationJob implements Runnable {
 
-	private static final Logger log = Logger.getLogger(ValidationJob.class);
+	private static final Logger log = LogManager.getLogger(ValidationJob.class);
 
 	private static ZipFile zf = null;
 	private static BagGenerator bagGenerator = null;

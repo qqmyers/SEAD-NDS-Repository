@@ -21,12 +21,13 @@
 
 package org.sead.repositories.reference.util;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.sead.nds.repository.util.LinkRewriter;
 
 public class ReferenceLinkRewriter implements LinkRewriter {
 
-	private static final Logger log = Logger
+	private static final Logger log = LogManager
 			.getLogger(ReferenceLinkRewriter.class);
 
 	private String base = null;

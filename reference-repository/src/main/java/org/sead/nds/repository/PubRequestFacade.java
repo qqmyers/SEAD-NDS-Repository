@@ -3,7 +3,8 @@ package org.sead.nds.repository;
 import java.util.ArrayList;
 
 import org.apache.commons.compress.parallel.InputStreamSupplier;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -21,7 +22,7 @@ import org.json.JSONObject;
  *
  */
 public abstract class PubRequestFacade {
-	private static final Logger log = Logger.getLogger(PubRequestFacade.class);
+	private static final Logger log = LogManager.getLogger(PubRequestFacade.class);
 
 	public static final String SUCCESS_STAGE = "Success";
 	public static final String FAILURE_STAGE = "Failure";

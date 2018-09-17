@@ -45,8 +45,9 @@ import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.commons.compress.parallel.InputStreamSupplier;
 import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.text.WordUtils;
-import org.apache.log4j.Logger;
+import org.apache.commons.text.WordUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.sead.nds.repository.util.FileUtils;
@@ -57,7 +58,7 @@ import org.sead.nds.repository.util.ValidationJob;
 
 public class BagGenerator {
 
-	private static final Logger log = Logger.getLogger(BagGenerator.class);
+	private static final Logger log = LogManager.getLogger(BagGenerator.class);
 
 	private ParallelScatterZipCreator scatterZipCreator = new ParallelScatterZipCreator(
 			Executors.newFixedThreadPool(Repository.getNumThreads()));
@@ -177,7 +178,7 @@ public class BagGenerator {
 			// children
 			processContainer(aggregation, currentPath);
 		}
-		// Create mainifest files
+		// Create maniifest files
 		// pid-mapping.txt - a DataOne recommendation to connect ids and
 		// in-bag path/names
 		StringBuffer pidStringBuffer = new StringBuffer();

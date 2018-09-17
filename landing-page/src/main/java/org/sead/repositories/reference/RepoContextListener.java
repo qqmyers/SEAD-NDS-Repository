@@ -34,7 +34,8 @@ import javax.servlet.ServletContextListener;
 import javax.servlet.annotation.WebListener;
 
 import org.apache.commons.compress.utils.IOUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.sead.nds.repository.Repository;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -46,7 +47,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 @WebListener
 public class RepoContextListener implements ServletContextListener {
 
-	private static final Logger log = Logger.getLogger(RepoContextListener.class);
+	private static final Logger log = LogManager.getLogger(RepoContextListener.class);
 
 	@Override
 	public void contextDestroyed(ServletContextEvent arg0) {

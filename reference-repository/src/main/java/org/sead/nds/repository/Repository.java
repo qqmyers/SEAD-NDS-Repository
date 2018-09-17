@@ -25,7 +25,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Properties;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -37,7 +38,7 @@ import edu.ucsb.nceas.ezid.profile.InternalProfile;
 
 public class Repository {
 
-	static final Logger log = Logger.getLogger(Repository.class);
+	static final Logger log = LogManager.getLogger(Repository.class);
 	private static String repoID = null;
 	private static Properties props;
 	private static String dataPath = null;
