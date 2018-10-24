@@ -25,16 +25,15 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Properties;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import edu.ucsb.nceas.ezid.EZIDException;
-import edu.ucsb.nceas.ezid.EZIDService;
-import edu.ucsb.nceas.ezid.profile.DataCiteProfile;
-import edu.ucsb.nceas.ezid.profile.DataCiteProfileResourceTypeValues;
-import edu.ucsb.nceas.ezid.profile.InternalProfile;
+import org.sead.nds.repository.util.DataCiteMetadataTemplate;
+import org.sead.nds.repository.util.DataCiteRESTfulClient;
+import org.sead.nds.repository.util.SEADException;
 
 public class Repository {
 
@@ -105,8 +104,7 @@ public class Repository {
 		return props.getProperty("repo.landing.base") + bagName;
 	}
 
-	public static String createDOIForRO(String bagID, C3PRPubRequestFacade RO)
-			throws EZIDException {
+	public static String createDOIForRO(String bagID, C3PRPubRequestFacade RO) throws SEADException, IOException {
 		String target = Repository.getLandingPageUri(bagID);
 		log.debug("DOI Landing Page: " + target);
 		String existingID = null;
@@ -131,39 +129,31 @@ public class Repository {
 			}
 		}
 
-		// After people expansion, we know that "Creator" is a JSONArray
-		String creators = C3PRPubRequestFacade
-				.getCreatorsString(C3PRPubRequestFacade
-						.flattenPeople((JSONArray) RO.getOREMap()
-								.getJSONObject("describes").get("Creator")));
 
-		log.debug("Creators for DOI: " + creators);
 
 		HashMap<String, String> metadata = new LinkedHashMap<String, String>();
-		metadata.put(InternalProfile.TARGET.toString(), target);
-		metadata.put(DataCiteProfile.TITLE.toString(), ((JSONObject) RO
-				.getOREMap().get("describes")).getString("Title"));
-		metadata.put(DataCiteProfile.CREATOR.toString(), creators);
+        
+		metadata.put(DataCiteMetadataTemplate.title, ((JSONObject) RO
+                .getOREMap().get("describes")).getString("Title"));
 		String rightsholderString = "SEAD (http://sead-data.net)";
-		if (RO.getPublicationRequest().has("Rights Holder")) {
-			rightsholderString = RO.getPublicationRequest().getString(
-					"Rights Holder")
-					+ ", " + rightsholderString;
-		} else {
-			log.warn("Request has no Rights Holder");
-		}
-		metadata.put(DataCiteProfile.PUBLISHER.toString(), rightsholderString);
-		metadata.put(DataCiteProfile.PUBLICATION_YEAR.toString(),
-				String.valueOf(Calendar.getInstance().get(Calendar.YEAR)));
-		// An RO is generically a DataCite Collection, but based on their
-		// definition and example,
-		// using Dataset, even when the RO has data + documentation is
-		// OK/preferred.
-		metadata.put(DataCiteProfile.RESOURCE_TYPE.toString(),
-				DataCiteProfileResourceTypeValues.DATASET.toString());
+	      if (RO.getPublicationRequest().has("Rights Holder")) {
+	            rightsholderString = RO.getPublicationRequest().getString(
+	                    "Rights Holder")
+	                    + ", " + rightsholderString;
+	        } else {
+	            log.warn("Request has no Rights Holder");
+	        }
+		metadata.put(DataCiteMetadataTemplate.publisher,rightsholderString);
+		metadata.put(DataCiteMetadataTemplate.publicationYear,String.valueOf(Calendar.getInstance().get(Calendar.YEAR)));
+        metadata.put(DataCiteMetadataTemplate.description, ((JSONObject) RO
+                .getOREMap().get("describes")).getString("Abstract"));
+		
+        // ToDo - Add Contributors/Contacts
+        metadata.put(DataCiteMetadataTemplate.creators, DataCiteMetadataTemplate.generateCreatorsXml((JSONArray) RO.getOREMap()
+                                .getJSONObject("describes").get("Creator")));
 
-		EZIDService ezid = new EZIDService(props.getProperty("ezid.url"));
-
+ 		
+		
 		// Get allowed purpose(s) from profile
 		JSONObject repository = RO.getRepositoryProfile();
 		String[] allowedPurposes = {PubRequestFacade.PRODUCTION };
@@ -200,10 +190,11 @@ public class Repository {
 		}
 
 		if (!purposeIsAllowed) {
-			throw new EZIDException("Repository not allowed to mint "
+			throw new SEADException("Repository not allowed to mint "
 					+ purposePref + " identifier");
 		}
-		ezid.login(props.getProperty("doi.user"), props.getProperty("doi.pwd"));
+		DataCiteRESTfulClient client = new DataCiteRESTfulClient(props.getProperty("datacite.url"), props.getProperty("doi.user"), props.getProperty("doi.pwd"));
+		
 		String shoulder = (production) ? props.getProperty("doi.shoulder.prod")
 				: props.getProperty("doi.shoulder.test");
 		String doi = null;
@@ -214,18 +205,26 @@ public class Repository {
 			// Enhancement: Retrieve metadata first and find current landing
 			// page for this DOI - can then
 			// decide what to do, e.g. to move/remove the old version, do
-			// something other than a 404 for the old landigng URL, etc.
-
+			// something other than a 404 for the old landing URL, etc.
+log.info("Not supported");
 			log.debug("Updating metadata for: " + existingID);
-			ezid.setMetadata(existingID, metadata);
 			doi = existingID;
+			client.close();
 		} else if ((existingID == null) || !allowUpdates) {
 			log.debug("Generating new ID with shoulder: " + shoulder);
-			doi = ezid.mintIdentifier(shoulder, metadata);
+			//doi = ezid.mintIdentifier(shoulder, metadata);
+			//MAYBE: provide a shoulder on the DataCite /metadata call and it will generate an identifier
+			String identifier = shoulder +  RandomStringUtils.randomAlphanumeric(6).toUpperCase();
+			metadata.put(DataCiteMetadataTemplate.identifier,identifier);
+			 client.postMetadata(new DataCiteMetadataTemplate(metadata).getMetadata());
+
+			 client.postUrl(identifier.substring(identifier.indexOf(":") + 1), target);
+ 
+	        
 		} else {
 			log.warn("Request to update an existing DOI that does not match requested shoulder: "
 					+ existingID + " : " + shoulder);
-			throw new EZIDException(
+			throw new SEADException(
 					"Cannot update doi due to shoulder conflict");
 		}
 		// Should be true

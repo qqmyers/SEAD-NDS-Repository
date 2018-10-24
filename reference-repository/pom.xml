@@ -62,26 +62,6 @@
 		</resources>
 	</build>
 
-
-	<repositories>
-		<!--repository>
-			<id>ezid.local</id>
-			<name>ezid</name>
-			<url>file:${project.basedir}/../sead-doi-service/repo</url>
-		</repository-->
-		<!-- Replaced local repo with dataone as they have added version 1.0.2 -->
-		<repository>
-			<id>dataone.org</id>
-			<url>http://dev-testing.dataone.org/maven</url>
-			<releases>
-				<enabled>true</enabled>
-			</releases>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-		</repository>
-	</repositories>
-
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
@@ -113,13 +93,18 @@
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>edu.ucsb.nceas</groupId>
-			<artifactId>ezid</artifactId>
-		</dependency>
+		        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.8.3</version>
+        </dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-text</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
@@ -155,15 +140,14 @@
 				<version>20180813</version>
 			</dependency>
 			<dependency>
-				<groupId>edu.ucsb.nceas</groupId>
-				<artifactId>ezid</artifactId>
-				<version>1.0.2-SNAPSHOT</version>
-				<type>jar</type>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-text</artifactId>
+				<version>1.6</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
-				<artifactId>commons-text</artifactId>
-				<version>1.4</version>
+				<artifactId>commons-lang3</artifactId>
+				<version>3.8.1</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.httpcomponents</groupId>
