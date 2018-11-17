@@ -23,6 +23,7 @@ package org.sead.repositories.reference.tools;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -34,6 +35,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -80,7 +86,13 @@ public class MovePublication {
 		JSONObject oremap = null;
 
 		String bagNameRoot = RefRepository.getBagNameRoot(id);
-		File result = new File(bagNameRoot + ".zip");
+		
+		Properties inputProps = new Properties();
+		inputProps.put("repo.datapath", "./");
+		Repository.init(inputProps);
+		String inputPath = RefRepository.getDataPathTo(id);
+		
+		File result = new File(inputPath, bagNameRoot + ".zip");
 		ZipFile zf = null;
 		try {
 			zf = new ZipFile(result);
@@ -126,117 +138,15 @@ public class MovePublication {
 			}
 		}
 
-		// Now write result back to zip
-		/*
-		 * File newORE = new File("test.ore.txt"); FileWriter fw = null; try {
-		 * fw = new FileWriter(newORE); fw.write(oremap.toString(2)); } catch
-		 * (JSONException e) { // TODO Auto-generated catch block
-		 * e.printStackTrace(); } catch (IOException e) { // TODO Auto-generated
-		 * catch block e.printStackTrace(); } IOUtils.closeQuietly(fw);
-		 */
-
-		File dir = unzipTree("./temp", result);
-		String oreFilePath = "./temp/" + bagNameRoot + "/oremap.jsonld.txt";
-		File map = new File(oreFilePath);
-		map.delete();
-		File newORE = new File(oreFilePath);
-		FileWriter fw = null;
+		//Freshen zip
 		try {
-			fw = new FileWriter(newORE);
-			fw.write(oremap.toString(2));
-		} catch (JSONException e) { // TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		IOUtils.closeQuietly(fw);
-		Properties p = new Properties();
-		p.put("repo.datapath", "./final/");
-		Repository.init(p);
-		String path = RefRepository.getDataPathTo(id);
-		new File(path).mkdirs();
-
-		try {
-			zipTree(path, dir);
-		} catch (Exception e) {
+			FileSystem zfs = FileSystems.newFileSystem(result.toPath(), null);
+			Files.copy(new ByteArrayInputStream(oremap.toString(2).getBytes(StandardCharsets.UTF_8)), zfs.getPath(bagNameRoot + "/oremap.jsonld.txt"), StandardCopyOption.REPLACE_EXISTING); 
+			zfs.close();
+		} catch (IOException e1) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			e1.printStackTrace();
 		}
-		File temp = new File("./temp/" + result);
-		try {
-			FileUtils.deleteDirectory(temp);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-
-	private static void zipTree(String outPath, File dir) throws Exception {
-
-		File topDir = dir.listFiles()[0];
-		File outFile = new File(outPath, topDir.getName() + ".zip");
-		ZipArchiveOutputStream zipOutputStream = new ZipArchiveOutputStream(
-				outFile);
-		addDir(topDir, "", zipOutputStream);
-
-		zipOutputStream.finish();
-		zipOutputStream.close();
-
-	}
-
-	private static void addDir(File dir, String relPath,
-			ZipArchiveOutputStream zipOutputStream) throws IOException {
-		File[] files = dir.listFiles();
-		if (relPath.length() != 0) {
-			relPath = relPath + "/" + dir.getName();
-		} else {
-			relPath = dir.getName();
-		}
-
-		for (int i = 0; i < files.length; i++) {
-			if (files[i].isDirectory()) {
-				addDir(files[i], relPath, zipOutputStream);
-				continue;
-			}
-			System.out
-					.println(" Adding: " + relPath + "/" + files[i].getName());
-			ZipArchiveEntry entry = new ZipArchiveEntry(files[i], relPath + "/"
-					+ files[i].getName());
-
-			zipOutputStream.putArchiveEntry(entry);
-			IOUtils.copy(new FileInputStream(files[i]), zipOutputStream);
-			zipOutputStream.closeArchiveEntry();
-		}
-
-	}
-
-	static File unzipTree(String outPath, File file) {
-		ZipFile zipFile = null;
-		try {
-			zipFile = new ZipFile(file);
-
-			Enumeration<? extends ZipEntry> entries = zipFile.entries();
-			while (entries.hasMoreElements()) {
-				ZipEntry entry = entries.nextElement();
-				File entryDestination = new File(outPath, entry.getName());
-				if (entry.isDirectory()) {
-					entryDestination.mkdirs();
-				} else {
-					entryDestination.getParentFile().mkdirs();
-					InputStream in = zipFile.getInputStream(entry);
-					OutputStream out = new FileOutputStream(entryDestination);
-					IOUtils.copy(in, out);
-					IOUtils.closeQuietly(in);
-					out.close();
-				}
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
-			IOUtils.closeQuietly(zipFile);
-		}
-		return new File(outPath);
 	}
 
 	private static String newLocation(JSONObject resource, String base) {

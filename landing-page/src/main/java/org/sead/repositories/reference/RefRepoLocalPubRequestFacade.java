@@ -82,14 +82,15 @@ public class RefRepoLocalPubRequestFacade extends C3PRPubRequestFacade {
 		if (requestFilePath == null) {
 			return super.getPublicationRequest();
 		}
-		File request = new File(requestFilePath);
-		if (request.exists()) {
+		File requestFile = new File(requestFilePath);
+		if (requestFile.exists()) {
 
 			try {
 				log.debug("Retrieving local request file: "
-						+ request.getAbsolutePath());
-				return new JSONObject(IOUtils.toString(new FileInputStream(
-						request), "UTF-8"));
+						+ requestFile.getAbsolutePath());
+				request =new JSONObject(IOUtils.toString(new FileInputStream(
+						requestFile), "UTF-8")); 
+				return request;
 			} catch (JSONException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

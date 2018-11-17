@@ -55,26 +55,59 @@ seadData.buildGrid = function(describes) {
 }
 
 seadData.fillInMetadata = function(describes) {
+	//Header and structured schema.org metadata:
+	$('head').append('<meta name="DC.identifier" content="' + describes["External Identifier"] + '" />');
+	$('head').append('<meta name="DC.type" content="Dataset" /><meta name="DC.title" content="' + describes.Title + '" />');
+	
+	var pubdate = describes["Publication Date"];
+	
+	$('head').append('<meta name="DC.date" content="' + pubdate + '" /><meta name="DC.publisher" content="SEAD" />');
+	$('head').append('<meta name="DC.description" content="' + describes.Abstract + '" />');
+			
+	
+						
+	$('head').append('<meta name="DC.creator" content="' + seadData.formatPeopleString(describes.Creator) + '" />');
+	$('head').append('<meta name="DC.subject" content="Scientific Research" />');
+	var schemald= {"@context":"http://schema.org",
+			       "@type":"Dataset",
+			       "identifier": describes["External Identifier"],
+			       "name":describes.Title,
+			       "author":seadData.formatPeopleMetadata(describes.Creator),
+			       "datePublished":pubdate,
+			       "description":describes.Abstract,
+			       "keywords":describes.Keyword,
+			       "schemaVersion":"https://schema.org/version/3.3",
+			       "license":{"@type":"Dataset","URL":describes.License},
+	               "includedInDataCatalog":{"@type":"DataCatalog","name":"SEAD","url":"https://sead2.ncsa.illinois.edu"},
+	               "provider":{"@type":"Organization","name":"http://www.nationaldataservice.org/"}};
+    $('head').append('<script type="application/ld+json">' + JSON.stringify(schemald) + '</script>');
+	
+	//Body contents
 	$('#Title').append(describes.Title);
 
-	var pubdate = describes["Publication Date"];
+	
 
 	$('#Date').append(pubdate);
 
 	$('#contacts').append(seadData.formatPeople(describes.Contact));
 	$('#abstract').append(
-			$('<pre/>').append(seadData.formatStringOrArray(describes.Abstract)));
-
-	var p = seadData.formatPeople(describes.Creator);
-	$('#creators').append(p);
+			$('<pre/>')
+					.append(seadData.formatStringOrArray(describes.Abstract)));
+	var creators = seadData.formatPeople(describes.Creator);
+	$('#creators').append(creators);
 	$('#ID').append($('<div/>').text(describes["External Identifier"]));
-	
-    if(describes.Purpose&&(describes.Purpose.startsWith("Testing"))) {
-        $('#extID .mlabel').text("Persistent Identifier (Test)");
-        $('#ID').append($('<p/>').text('Temporary DOI').attr('class','red-rectangle'));
-    }
+
+	if (describes.Purpose && (describes.Purpose.startsWith("Testing"))) {
+		$('#extID .mlabel').text("Persistent Identifier (Test)");
+		$('#ID').append(
+				$('<p/>').text('Temporary DOI').attr('class', 'red-rectangle'));
+	}
 
 	$('#keywords').append(seadData.formatStringOrArray(describes.Keyword));
+
+	$('#citation').append(seadData.formatPeopleString(describes.Creator) + ", " + pubdate + ", \"" + describes.Title + "\", " + 
+               "<span id='publisher'/>, " + describes["External Identifier"]);
+
 	var lic = describes.License;
 
 	if (lic != null) {
@@ -206,6 +239,7 @@ seadData.addDownloadLinks = function(describes) {
 							$('<div/>').attr('id', 'map').attr('class',
 									'btn btn-primary col-xs-6').text(
 									'Download Metadata Only')));
+	$('#manifest').append(($('<a/>').attr('href', uriRoot + seadData.getId() + '/manifest')).attr('target', '_blank').append('File Manifest Page.'));
 }
 
 seadData.formatPeople = function(people) {
@@ -228,12 +262,6 @@ seadData.formatStringOrArray = function(words) {
 			p = $('<div>');
 			for (var i = 0; i < words.length; i++) {
 				var k = words[i];
-				// Kludge for 1.5 until it removes tag ID info
-				// var index = k.indexOf("tag:cet.ncsa.uiuc.edu,2008:/tag#");
-				// if (index != -1) {
-				// k = k.substring(index + 32);
-				// k = k.replace(/\+/g, ' ');
-				// }
 				if (i > 0) {
 					k = ", " + k;
 				}
@@ -263,6 +291,57 @@ seadData.formatPerson = function(person) {
 		}
 	}
 }
+
+seadData.formatPeopleString = function(people) {
+	var p = [];
+	if (Array.isArray(people)) {
+		for (var i = 0; i < people.length; i++) {
+			p[i]=(seadData.formatPersonString(people[i]));
+		}
+	} else {
+		p[0] = seadData.formatPersonString(people);
+	}
+	return p.join(';');
+}
+
+seadData.formatPersonString = function(person) {
+	if (typeof person == 'string') {
+		return person;
+	} else {
+		if (person) {
+			return person.familyName + ', ' + person.givenName;
+		}
+	}
+}
+
+seadData.formatPeopleMetadata = function(people) {
+	var p = [];
+	if (Array.isArray(people)) {
+		for (var i = 0; i < people.length; i++) {
+			p[i]=(seadData.formatPersonMetadata(people[i]));
+		}
+	} else {
+		p[0] = seadData.formatPersonMetadata(people);
+	}
+	return '[' + p.join(',') + ']';
+}
+
+seadData.formatPersonMetadata = function(person) {
+	if (typeof person == 'string') {
+		return '{"name":"' + person + '"}';
+	} else {
+		if (person) {
+			var metadata = '{"name":"' + person.familyName + ', ' + person.givenName + '", "@id":"' + person['@id'] +'"';
+			if(person.email!=null) {
+				metadata = metadata + ',"email":"' + person.email + '"}';
+			} else {
+				metadata = metadata + '}';
+			}
+		}	
+	}
+	return metadata;
+}
+
 
 var aggTitle = "";
 
@@ -298,6 +377,7 @@ seadData.init = function() {
 						$('title').text(repojson.repositoryName);
 						$('#heading').text(repojson.repositoryName);
 						$('#about').text("About: " + repojson.repositoryName);
+						$('#publisher').text(repojson.repositoryName);
 						$('#repo').text(repojson.repositoryName).attr('href',
 								repojson.repositoryURL);
 						if (repojson.subject) {
@@ -423,9 +503,17 @@ seadData.loadChild = function loadChild(agg, childId, id, parentid, parentpath) 
 				if (fileSize == null) {
 					fileSize = child.size;
 				}
-				$('#datatable tbody').append(
-						getDataRow(parentid, id, child.Title, parentpath
-								+ '%2F' + child.Title, fileSize));
+				// Clowder ~1.3.0#13 kludge - Size changes from a string to an
+				// object
+				// with a $numberLong element when size is above some GB limit
+				// (2GB? 4GB?)
+				if (typeof (fileSize['$numberLong']) != "undefined")
+					fileSize = fileSize['$numberLong'];
+				if (!(child.Title === 'SEADImport.ReadMe.txt')) {
+					$('#datatable tbody').append(
+							getDataRow(parentid, id, child.Title,
+									child.similarTo, fileSize));
+				}
 			}
 		}
 	}
@@ -468,13 +556,10 @@ function getDataRow(parentId, childId, name, uri, size) {
 
 	newRow.append($('<td/>').append(
 			$('<span/>').addClass('file').append(
-					$('<a/>').attr('href',
-							'./api/researchobjects/' + id + '/data/' + uri)
-							.attr('target', '_blank').attr(
-									"onclick",
-									"ga('send', 'event', '" + aggTitle + '::'
-											+ id + "', 'File Download', '" + id
-											+ "/data/" + uri + "');")
+					$('<a/>').attr('href', uri).attr('target', '_blank').attr(
+							"onclick",
+							"ga('send', 'event', '" + aggTitle + '::' + id
+									+ "', 'File Download', '" + uri + "');")
 							.html(name))));
 
 	newRow.append($('<td/>').html(filesize(parseInt(size), {
@@ -560,15 +645,15 @@ function activateTable() {
 													if (fileSize == null) {
 														fileSize = child.size;
 													}
-													rows = rows
-															.add(getDataRow(
-																	node.id,
-																	i,
-																	child.Title,
-																	parentpath
-																			+ '%2F'
-																			+ child.Title,
-																	fileSize));
+													if (!(child.Title === 'SEADImport.ReadMe.txt')) {
+														rows = rows
+																.add(getDataRow(
+																		node.id,
+																		i,
+																		child.Title,
+																		child.similarTo,
+																		fileSize));
+													}
 												}
 												if (i % 100 == 0) {
 													$(

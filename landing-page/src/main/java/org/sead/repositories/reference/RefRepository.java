@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2015 University of Michigan
+ * Copyright 2015 University of Michigan, 2017 Jim Myers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,17 @@
 
 package org.sead.repositories.reference;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -33,9 +39,15 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Scanner;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
+import java.util.zip.ZipFile;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -44,6 +56,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -55,11 +68,13 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.input.CountingInputStream;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.sead.nds.repository.BagGenerator;
 import org.sead.nds.repository.C3PRPubRequestFacade;
 import org.sead.nds.repository.PubRequestFacade;
 import org.sead.nds.repository.Repository;
+import org.sead.repositories.reference.util.OREInputStreamHolder;
 import org.sead.repositories.reference.util.RefLocalContentProvider;
 import org.sead.repositories.reference.util.ReferenceLinkRewriter;
 
@@ -75,15 +90,6 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
-import java.util.ArrayList;
-import java.util.Scanner;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
-import java.util.zip.ZipFile;
 
 /**
  * RefRepository generates new data publications and manages the RESTful
@@ -122,6 +128,7 @@ public class RefRepository extends Repository {
 	private static String localRequest = null;
 	private static String localContentSource = null;
 	private static boolean validateOnly = false;
+	private static boolean ignoreHashes = false;
 
 	public static void main(String[] args) {
 		PropertyConfigurator.configure("./log4j.properties");
@@ -150,6 +157,9 @@ public class RefRepository extends Repository {
 					case 'v':
 						validateOnly = true;
 						break;
+					case 'i':
+						ignoreHashes = true;
+						break;
 					default:
 						printUsage();
 						break;
@@ -160,8 +170,8 @@ public class RefRepository extends Repository {
 			}
 		}
 		/*
-		 * At this point we have an RO ID and possibly a local pub request and
-		 * possibly a local Content source.
+		 * At this point we have an RO ID and possibly a local pub request and possibly
+		 * a local Content source.
 		 */
 		C3PRPubRequestFacade RO = null;
 		try {
@@ -178,6 +188,9 @@ public class RefRepository extends Repository {
 			log.info("Validation Complete.");
 			System.exit(0);
 			;
+		}
+		if (ignoreHashes) {
+			bg.setIgnoreHashes(true);
 		}
 		// Request human approval if needed - will send a fail status and
 		// exit if request is denied
@@ -214,6 +227,9 @@ public class RefRepository extends Repository {
 				"Usage:  <RO Identifier> <-l <optional local pubRequest file (path to JSON document)>> <-r <local Content Source RO ID>> <-v>");
 		System.out.println(
 				"-v - validateOnly - assumes a zip file for this RO ID exists and will attempt to validate the stored files w.r.t. the hash values in the oremap.");
+		System.out.println(
+				"-i - ignoreHashes - generate new hashes for all content (work-around to deal with Bad Hashes from Clowder before 12/17.");
+
 		System.out.println(
 				"Note: RO identifier is always sent and must match the identifier in any local pub Request file used.");
 		System.out.println("Note: A local content source will override info sent as an alternateOf Preference.");
@@ -274,7 +290,7 @@ public class RefRepository extends Repository {
 	}
 
 	/**
-	 * @Path("/researchobjects")
+	 * @Path("/repository")
 	 * 
 	 * Returns the base landingpage html
 	 */
@@ -311,6 +327,25 @@ public class RefRepository extends Repository {
 		return Response.status(com.sun.jersey.api.client.ClientResponse.Status.INTERNAL_SERVER_ERROR).build();
 	}
 
+	/**
+	 * @Path("/sitemap.txt")
+	 * 
+	 * Returns the sitemap (for indexing)
+	 */
+	@Path("/sitemap.txt")
+	@Produces(MediaType.TEXT_PLAIN)
+	@GET
+	public Response getSitemap() {
+		File sitemap = new File(Repository.getDataPath(), "sitemap.txt");
+		if(sitemap.exists()) {
+			log.debug("Sending sitemap.txt");
+		} else {
+			log.warn("/sitemap.txt not found");
+		}
+		return Response.ok(sitemap).build();
+	}
+	
+	
 	/*
 	 * @Path("/researchobjects")
 	 * 
@@ -342,8 +377,7 @@ public class RefRepository extends Repository {
 	 * 
 	 * Returns the description file for the Aggregation
 	 * 
-	 * /researchobjects/{id}/metadata returns this plus the top level of
-	 * children
+	 * /researchobjects/{id}/metadata returns this plus the top level of children
 	 */
 
 	@Path("/researchobjects/{id}")
@@ -370,7 +404,8 @@ public class RefRepository extends Repository {
 				}
 			};
 
-			return Response.ok(stream).build();
+			return Response.ok(stream)
+					.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_TYPE + "; charset=utf-8").build();
 		} catch (IOException e) {
 			e.printStackTrace();
 			return Response.serverError().build();
@@ -380,13 +415,13 @@ public class RefRepository extends Repository {
 	/*
 	 * @Path("/researchobjects/{id}/metadata")
 	 * 
-	 * Returns the description for the Aggregation (the Aggregation metadata and
-	 * the descriptions of the AggregatedResources at the top-level(direct
-	 * children listed in 'HasPart')
+	 * Returns the description for the Aggregation (the Aggregation metadata and the
+	 * descriptions of the AggregatedResources at the top-level(direct children
+	 * listed in 'HasPart')
 	 */
 
 	@Path("/researchobjects/{id}/metadata")
-	@Produces(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
 	@GET
 	public Response getResourceMetadata(@PathParam(value = "id") String id) {
 		String path = getDataPathTo(id);
@@ -405,14 +440,14 @@ public class RefRepository extends Repository {
 			File oremap = getOREMapFile(id);
 			// Find/open base ORE map file
 			// Note - limited to maxint size for oremap file size
-			cis = new CountingInputStream(
-					new BufferedInputStream(new FileInputStream(oremap), Math.min((int) oremap.length(), 1000000)));
-			JsonNode resultNode = getAggregation(id, indexFile, cis, true, oremap.length());
+			OREInputStreamHolder oreSH = new OREInputStreamHolder(oremap);
+			JsonNode resultNode = getAggregation(id, indexFile, oreSH, true, oremap.length());
 			if (resultNode == null) {
 				log.warn("Null item returned");
 			}
 
-			return Response.ok(resultNode.toString()).build();
+			return Response.ok(resultNode.toString())
+					.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_TYPE + "; charset=utf-8").build();
 		} catch (JsonParseException e) {
 			log.error(e);
 			e.printStackTrace();
@@ -427,12 +462,127 @@ public class RefRepository extends Repository {
 	}
 
 	/*
+	 * @Path("/researchobjects/{id}/manifest")
+	 * 
+	 * Returns the description for the Aggregation (the Aggregation metadata and the
+	 * descriptions of the AggregatedResources at the top-level(direct children
+	 * listed in 'HasPart')
+	 */
+
+	@Path("/researchobjects/{id}/manifest")
+	@Produces(MediaType.TEXT_HTML + ";charset=utf-8")
+	@GET
+	public Response getResourceManifest(@PathParam(value = "id") final String id) {
+		final String path = getDataPathTo(id);
+		final String bagNameRoot = getBagNameRoot(id);
+
+		File result = new File(path, bagNameRoot + ".zip");
+		if (!result.exists()) {
+			return Response.status(Status.NOT_FOUND).build();
+		}
+		StreamingOutput stream = null;
+		try {
+			final ZipFile zf = new ZipFile(result);
+			log.debug("Zipfile opened");
+			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot + "/pid-mapping.txt");
+			final InputStream source = zf.getInputStream(archiveEntry1);
+
+			final BufferedReader reader = new BufferedReader(new InputStreamReader(source));
+
+			stream = new StreamingOutput() {
+				public void write(OutputStream os) throws IOException, WebApplicationException {
+					String dsUrl = getProps().getProperty("repo.landing.base") + URLEncoder.encode(id, "UTF-8");
+					String baseRepoUrl = dsUrl.substring(0, dsUrl.indexOf("api/researchobjects/"));
+					final PrintStream printStream = new PrintStream(os);
+					printStream.print("<html lang=\"en\">\n" + "<head>\n"
+							+ "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=ISO-8859-1\">\n"
+							+ "<link href=\"" + baseRepoUrl
+							+ "bootstrap/css/bootstrap.css\" rel=\"stylesheet\" media=\"screen\">\n" + "<link href=\""
+							+ baseRepoUrl + "css/landing.css\" rel=\"stylesheet\" media=\"screen\">\n");
+
+					// create ObjectMapper instance
+					ObjectMapper objectMapper = new ObjectMapper();
+					// read JSON like DOM Parser
+					JsonNode rootNode = objectMapper
+							.readTree(Files.readAllBytes(Paths.get(path, bagNameRoot + ".desc.json")));
+
+					JSONObject schemald = new JSONObject();
+					// Create schema.org info
+
+					schemald.put("@context", "http://schema.org");
+					schemald.put("@type", "Dataset");
+					String doi = rootNode.get("External Identifier").textValue();
+					schemald.put("identifier", doi);
+					schemald.put("name", rootNode.get("Title").textValue());
+
+					String landingUrl = baseRepoUrl + "landing.html#" + URLEncoder.encode(id, "UTF-8");
+					JSONArray urls = new JSONArray();
+					urls.put(dsUrl);
+					urls.put(landingUrl);
+					schemald.put("sameAs", urls);
+					schemald.put("schemaVersion", "https://schema.org/version/3.3");
+
+					String str = null;
+					StringBuffer sb = new StringBuffer(
+							"<table class=\"table table-striped table-bordered\"><tbody>\n<thead class=\"thead-dark\"><tr><th>Persistent Identifier</th><th>Path within dataset</th></tr></thead>\n");
+					JSONArray parts = new JSONArray();
+					while ((str = reader.readLine()) != null) {
+						int firstSpace = str.indexOf(" ");
+						int dataDir = str.indexOf("/data/");
+						String urn = str.substring(0, firstSpace);
+						parts.put(urn);
+						// Capture text for table
+						sb.append("<tr><td>" + urn + "</td><td>" + str.substring(dataDir + 5) + "</td></tr>\n");
+					}
+					schemald.put("hasPart", parts);
+					printStream.print("<script type=\"application/ld+json\">" + schemald.toString() + "</script>");
+					printStream.print("</head><body>");
+					printStream.print(
+							"<div id=\"header-logo-image\"><a href=\"http://sead-data.net/\" title=\"SEAD\" rel=\"home\">"
+									+ "<img src=\"http://sead-data.net/wp-content/uploads/2014/06/logo.png\" alt=\"SEAD\"></a></div>");
+					printStream.print(
+							"<div id=\"wrapper\"><div id=\"heading\">SEAD</div><div id=\"page-wrapper\"><div class=\"container\">");
+
+					printStream.print(
+							"<h1>The following table lists the persistent identifiers for all folders and files that are part of the dataset ");
+
+					printStream.print("<a href = \"" + doi + "\">" + doi + "</a></h1>\n");
+
+					printStream.print(
+							"<h3>SEAD recommends citing specific files by citing the parent Dataset via its DOI and including the urn(s) of specific files or folders in that citation\n."
+									+ " Citing a file directly via its urn may make it hard to discover when multiple authors are citing material from the same dataset \n"
+									+ "(although this page contains hidden Schema.org json-ld markup to make the file to dataset connections discoverable).</h3>");
+
+					// Add table contents
+					printStream.print(sb.toString());
+					printStream.print("</tbody></table>");
+					printStream.print("</div></div></div>");
+					printStream.print("</body></html>");
+
+					IOUtils.closeQuietly(os);
+					IOUtils.closeQuietly(source);
+					IOUtils.closeQuietly(zf);
+				}
+			};
+		} catch (IOException io) {
+			log.error("Error creating manifest: " + id, io);
+			io.printStackTrace();
+		}
+		if (stream == null) {
+			log.error("Stream is null");
+			return Response.serverError().build();
+		}
+
+		return Response.ok(stream).build();
+
+	}
+
+	/*
 	 * @Path("/researchobjects/{id}/metadata/{did}")
 	 * 
 	 * Returns the description for the AggregationResource within the {id}
 	 * Aggregation (the AggregatedResource metadata and the descriptions of the
-	 * AggregatedResources directly within it (direct children listed in
-	 * 'HasPart'))
+	 * AggregatedResources directly within it (direct children listed in 'HasPart'))
 	 */
 
 	private File getOREMapFile(String id) {
@@ -493,10 +643,9 @@ public class RefRepository extends Repository {
 			// Find/open base ORE map file
 			// Note - limited to maxint size for oremap file size
 			File map = getOREMapFile(id);
-			cis = new CountingInputStream(
-					new BufferedInputStream(new FileInputStream(map), Math.min((int) map.length(), 1000000)));
+			OREInputStreamHolder oreSH = new OREInputStreamHolder(map);
 
-			JsonNode resultNode = getItem(dataID, indexFile, cis, true, map.length());
+			JsonNode resultNode = getItem(dataID, indexFile, oreSH, true, map.length());
 			if (resultNode == null) {
 				log.warn("Null item returned");
 			}
@@ -518,13 +667,13 @@ public class RefRepository extends Repository {
 	/*
 	 * @Path("/researchobjects/{id}/data/{relpath}")
 	 * 
-	 * Returns the data file (any file within the /data directory) at the given
-	 * path within the {id} publication
+	 * Returns the data file (any file within the /data directory) at the given path
+	 * within the {id} publication
 	 * 
-	 * Note: The original version using the apache compress ZiFile class used
-	 * for generating the bags can be extremely slow when reading large files
-	 * (e.g. 20+ minutes for a 600GB file), even when all we do is extract one
-	 * file. The java.uti.zip.ZipFile class seems to work normally (<second).
+	 * Note: The original version using the apache compress ZiFile class used for
+	 * generating the bags can be extremely slow when reading large files (e.g. 20+
+	 * minutes for a 600GB file), even when all we do is extract one file. The
+	 * java.uti.zip.ZipFile class seems to work normally (<second).
 	 */
 
 	@Path("/researchobjects/{id}/data/{relpath}")
@@ -536,11 +685,15 @@ public class RefRepository extends Repository {
 		String bagNameRoot = getBagNameRoot(id);
 		File result = new File(path, bagNameRoot + ".zip");
 		StreamingOutput stream = null;
-
+		log.debug("Opening: " + result.getPath());
 		try {
+
 			final ZipFile zf = new ZipFile(result);
+			log.debug("Have zipfile: " + result.getPath());
 			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot + "/data/" + datapath);
+			log.debug("Looking for: " + bagNameRoot + "/data/" + datapath);
 			if (archiveEntry1 != null) {
+				log.debug("Found: " + bagNameRoot + "/data/" + datapath);
 				final InputStream inputStream = new BufferedInputStream(zf.getInputStream(archiveEntry1));
 
 				stream = new StreamingOutput() {
@@ -557,6 +710,7 @@ public class RefRepository extends Repository {
 			e.printStackTrace();
 		}
 		if (stream == null) {
+			log.error("Stream is null");
 			return Response.serverError().build();
 		}
 
@@ -689,11 +843,9 @@ public class RefRepository extends Repository {
 
 	}
 
-	private JsonNode getAggregation(String id, File indexFile, CountingInputStream cis, boolean withChildren,
+	private JsonNode getAggregation(String id, File indexFile, OREInputStreamHolder oreSH, boolean withChildren,
 			Long oreFileSize) throws JsonParseException, JsonMappingException, IOException {
 		log.debug("Getting Aggregation");
-
-		long curPos = 0;
 
 		// Always need to generate these
 		ArrayList<String> entries = new ArrayList<String>();
@@ -728,7 +880,7 @@ public class RefRepository extends Repository {
 		log.trace(resultNode.toString());
 		if ((resultNode.has("Has Part")) && withChildren) {
 
-			resultNode = getChildren(resultNode, indexFile, cis, oreFileSize, curPos, entries, offsets);
+			resultNode = getChildren(resultNode, indexFile, oreSH, oreFileSize, entries, offsets);
 		} else {
 			resultNode.remove("aggregates");
 		}
@@ -738,19 +890,19 @@ public class RefRepository extends Repository {
 
 	// Get the first item, before the entries and offsets lists are created
 	// (they are used to get children efficiently)
-	private JsonNode getItem(String item, File indexFile, CountingInputStream cis, boolean withChildren,
+	private JsonNode getItem(String item, File indexFile, OREInputStreamHolder oreSH, boolean withChildren,
 			long oreFileSize) throws JsonParseException, JsonMappingException, IOException {
-		return getItem(item, indexFile, cis, withChildren, oreFileSize, 0, null, null);
+		return getItem(item, indexFile, oreSH, withChildren, oreFileSize, null, null);
 	}
 
 	// Get an item as a child using the existing (if not null) entries and
 	// offset lists
-	private JsonNode getItem(String item, File indexFile, CountingInputStream cis, boolean withChildren,
-			Long oreFileSize, long curOffset, ArrayList<String> entries, ArrayList<Long> offsets)
+	private JsonNode getItem(String item, File indexFile, OREInputStreamHolder oreSH, boolean withChildren,
+			Long oreFileSize, ArrayList<String> entries, ArrayList<Long> offsets)
 			throws JsonParseException, JsonMappingException, IOException {
-		log.trace("Getting: " + item + " with starting offset: " + curOffset);
+		log.trace("Getting: " + item + " with starting offset: " + oreSH.getCurPos());
 
-		long curPos = curOffset;
+		long curPos = oreSH.getCurPos();
 
 		if ((entries == null) || (offsets == null)) {
 			entries = new ArrayList<String>();
@@ -797,10 +949,11 @@ public class RefRepository extends Repository {
 		} else {
 			estSize = (int) (oreFileSize - offsets.get(index));
 		}
-		curPos += skipTo(cis, curPos, offsets.get(index));
+		skipTo(oreSH, offsets.get(index));
+
 		log.trace("Current Pos updated to : " + curPos);
 		b = new byte[estSize];
-		bytesRead = cis.read(b);
+		bytesRead = oreSH.getCis().read(b);
 		log.trace("Read " + bytesRead + " bytes");
 		if (bytesRead == estSize) {
 			log.trace("Read: " + new String(b));
@@ -814,12 +967,12 @@ public class RefRepository extends Repository {
 				log.debug(e.getMessage());
 			}
 
-			curPos += bytesRead;
-			log.trace("curPos: " + curPos + " : count: " + cis.getByteCount());
+			oreSH.setCurPos(oreSH.getCurPos() + bytesRead);
+			log.trace("curPos: " + oreSH.getCurPos() + " : count: " + oreSH.getCis().getByteCount());
 
 			log.trace(resultNode.toString());
 			if ((resultNode.has("Has Part")) && withChildren) {
-				resultNode = getChildren(resultNode, indexFile, cis, oreFileSize, curPos, entries, offsets);
+				resultNode = getChildren(resultNode, indexFile, oreSH, oreFileSize, entries, offsets);
 			} else {
 				resultNode.remove("aggregates");
 			}
@@ -829,8 +982,8 @@ public class RefRepository extends Repository {
 			 * 
 			 * InputStream is2 = new ByteArrayInputStream(b.array());
 			 * 
-			 * JsonNode node2 = mapper.readTree(is2);
-			 * System.out.println(node2.toString()); is2.close(); }
+			 * JsonNode node2 = mapper.readTree(is2); System.out.println(node2.toString());
+			 * is2.close(); }
 			 */
 			return resultNode;
 		} else {
@@ -840,8 +993,8 @@ public class RefRepository extends Repository {
 	}
 
 	// Get all direct child nodes
-	private ObjectNode getChildren(ObjectNode resultNode, File indexFile, CountingInputStream cis, Long oreFileSize,
-			long curPos, ArrayList<String> entries, ArrayList<Long> offsets)
+	private ObjectNode getChildren(ObjectNode resultNode, File indexFile, OREInputStreamHolder oreSH, Long oreFileSize,
+			ArrayList<String> entries, ArrayList<Long> offsets)
 			throws JsonParseException, JsonMappingException, IOException {
 
 		ArrayList<String> childIds = new ArrayList<String>();
@@ -856,15 +1009,13 @@ public class RefRepository extends Repository {
 		}
 		ArrayNode aggregates = mapper.createArrayNode();
 		for (String name : childIds) {
-			aggregates.add(getItem(name, indexFile, cis, false, oreFileSize, curPos, entries, offsets));
-			curPos = cis.getByteCount();
-			log.trace("curPos updated to " + curPos + " after reading: " + name);
+			aggregates.add(getItem(name, indexFile, oreSH, false, oreFileSize, entries, offsets));
+			log.trace("curPos updated to " + oreSH.getCurPos() + " after reading: " + name);
 
 		}
 		log.trace("Child Ids: " + childIds.toString());
 		resultNode.set("aggregates", aggregates);
 		return resultNode;
-
 	}
 
 	// Skip forward as needed through the oremap to find the next child
@@ -872,24 +1023,25 @@ public class RefRepository extends Repository {
 	// the same relative order as they are listed in the dcterms:hasPart
 	// list. If backwards skips are seen, we need to order the children
 	// according to their relative offsets before attempting to retrieve them.
-	private static long skipTo(CountingInputStream cis, long curPos, Long long1) throws IOException {
-		log.trace("Skipping to : " + long1.longValue());
-		long offset = long1.longValue() - curPos;
+	private static void skipTo(OREInputStreamHolder oreSH, Long skip) throws IOException {
+		log.trace("Skipping to : " + skip.longValue());
+		long offset = skip.longValue() - oreSH.getCurPos();
 		if (offset < 0) {
-			log.error("Backwards jump attempted");
-			throw new IOException("Backward Skip: failed");
+			offset += oreSH.getCurPos();
+			oreSH.reset();
+			log.warn("Backwards jump - resetting stream");
 		}
-		log.trace("At: " + curPos + " going forward by " + offset);
+		log.trace("At: " + oreSH.getCurPos() + " going forward by " + offset);
 		long curskip = 0;
 		while (curskip < offset) {
-			long inc = cis.skip(offset - curskip);
+			long inc = oreSH.getCis().skip(offset - curskip);
 			if (inc == -1) {
 				log.error("End of Stream");
 				throw new IOException("End of Stream");
 			}
 			curskip += inc;
 		}
-		return offset;
+		oreSH.setCurPos(oreSH.getCurPos() + offset);
 	}
 
 	// Create the index file by parsing the oremap
