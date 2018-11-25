@@ -37,7 +37,7 @@ public class DataCiteMetadataTemplate {
     public static final String identifier = "${identifier}";
 
     static {
-        try (InputStream in = DataCiteMetadataTemplate.class.getResourceAsStream("datacite_metadata_template.xml")) {
+        try (InputStream in = DataCiteMetadataTemplate.class.getResourceAsStream("/datacite_metadata_template.xml")) {
             template = Util.readAndClose(in, "utf-8");
         } catch (Exception e) {
             logger.log(Level.ERROR, "datacite metadata template load error");
@@ -71,7 +71,7 @@ public class DataCiteMetadataTemplate {
     public void resetMetadata(Map<String, String> metadata) {
         xmlMetadata = template;
         for (String key : metadata.keySet()) {
-            xmlMetadata = xmlMetadata.replaceAll(key, metadata.get(key));
+            xmlMetadata = xmlMetadata.replace(key, metadata.get(key));
         }
     }
 
@@ -92,7 +92,7 @@ public class DataCiteMetadataTemplate {
             } else if (o instanceof JSONObject) {
                 JSONObject jo = (JSONObject) o;
                 creatorsElement.append("<creator><creatorName>");
-                creatorsElement.append(jo.getString("givenName")
+                creatorsElement.append(jo.getString("givenName") + " " 
                         + jo.getString("familyName"));
                 creatorsElement.append("</creatorName>");
                 creatorsElement.append("<nameIdentifier schemeURI=\"https://orcid.org/\" nameIdentifierScheme=\"ORCID\">" + jo.getString("@id") + "</nameIdentifier></creator>");
@@ -107,13 +107,13 @@ public class DataCiteMetadataTemplate {
             for (int i = 0; i < people.length(); i++) {
                 Object o = people.get(i);
                 if (o instanceof String) {
-                    contributorsElement.append("<contributor contributorType=\\\"" + type + "\\\"><contributorName>");
+                    contributorsElement.append("<contributor contributorType=\"" + type + "\"><contributorName>");
                     contributorsElement.append((String) o);
                     contributorsElement.append("</contributorName></contributor>");
                 } else if (o instanceof JSONObject) {
                     JSONObject jo = (JSONObject) o;
-                    contributorsElement.append("<contributor contributorType=\\\"" + type + "\\\"><contributorName>");
-                    contributorsElement.append(jo.getString("givenName")
+                    contributorsElement.append("<contributor contributorType=\"" + type + "\"><contributorName>");
+                    contributorsElement.append(jo.getString("givenName") + " " 
                             + jo.getString("familyName"));
                     contributorsElement.append("</contributorName>");
                     contributorsElement.append("<nameIdentifier schemeURI=\"https://orcid.org/\" nameIdentifierScheme=\"ORCID\">" + jo.getString("@id") + "</nameIdentifier></contributor>");

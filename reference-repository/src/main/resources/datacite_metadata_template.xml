@@ -14,5 +14,5 @@
     <descriptions>
         <description descriptionType="Abstract">${description}</description>
     </descriptions>
-    <contributors>{$contributors}</contributors>
+    <contributors>${contributors}</contributors>
 </resource>

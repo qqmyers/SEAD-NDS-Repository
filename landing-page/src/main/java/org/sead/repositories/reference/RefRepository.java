@@ -135,11 +135,7 @@ public class RefRepository extends Repository {
     private static boolean ignoreHashes = false;
 
     public static void main(String[] args) {
-        LoggerContext context = (org.apache.logging.log4j.core.LoggerContext) LogManager.getContext(false);
-        File file = new File("./log4j2.xml");
 
-        // this will force a reconfiguration
-        context.setConfigLocation(file.toURI());
         init(loadProperties());
         if (args.length == 0) {
             printUsage();

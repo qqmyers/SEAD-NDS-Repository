@@ -50,6 +50,14 @@
 		</plugins>
 	</build>
 
+	<repositories>
+		<repository>
+			<id>refrepo.local</id>
+			<name>refrepo</name>
+			<url>file:d:/git/sead-NDS-Repository/reference-repository/repo</url>
+		</repository>
+	</repositories>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
@@ -102,7 +110,6 @@
 			<artifactId>javax.servlet-api</artifactId>
 			<version>3.1.0</version>
 		</dependency>
-
 		<dependency>
 			<groupId>org.sead</groupId>
 			<artifactId>ref-repo</artifactId>
@@ -184,7 +191,7 @@
 			<dependency>
 				<groupId>org.sead</groupId>
 				<artifactId>ref-repo</artifactId>
-				<version>1.0.48</version>
+				<version>1.0.49</version>
 				<type>jar</type>
 			</dependency>
 			<dependency>

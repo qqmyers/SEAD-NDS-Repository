@@ -151,8 +151,11 @@ public class Repository {
         // ToDo - Add Contributors/Contacts
         metadata.put(DataCiteMetadataTemplate.creators, DataCiteMetadataTemplate.generateCreatorsXml((JSONArray) RO.getOREMap()
                                 .getJSONObject("describes").get("Creator")));
+        metadata.put(DataCiteMetadataTemplate.contributors, DataCiteMetadataTemplate.generateContributorsXml(DataCiteMetadataTemplate.contactType,(JSONArray) RO.getOREMap()
+                .getJSONObject("describes").get("Creator")));
 
- 		
+
+ 		metadata.put(DataCiteMetadataTemplate.relatedIdentifiers,"");
 		
 		// Get allowed purpose(s) from profile
 		JSONObject repository = RO.getRepositoryProfile();
@@ -214,11 +217,11 @@ log.info("Not supported");
 			log.debug("Generating new ID with shoulder: " + shoulder);
 			//doi = ezid.mintIdentifier(shoulder, metadata);
 			//MAYBE: provide a shoulder on the DataCite /metadata call and it will generate an identifier
-			String identifier = shoulder +  RandomStringUtils.randomAlphanumeric(6).toUpperCase();
-			metadata.put(DataCiteMetadataTemplate.identifier,identifier);
+			doi = shoulder +  RandomStringUtils.randomAlphanumeric(6).toUpperCase();
+			metadata.put(DataCiteMetadataTemplate.identifier,doi);
 			 client.postMetadata(new DataCiteMetadataTemplate(metadata).getMetadata());
 
-			 client.postUrl(identifier.substring(identifier.indexOf(":") + 1), target);
+			 client.postUrl(doi, target);
  
 	        
 		} else {
@@ -226,10 +229,6 @@ log.info("Not supported");
 					+ existingID + " : " + shoulder);
 			throw new SEADException(
 					"Cannot update doi due to shoulder conflict");
-		}
-		// Should be true
-		if (doi.startsWith("doi:")) {
-			doi = doi.substring(4);
 		}
 		log.debug("Generated/Updated DOI: http://doi.org/" + doi);
 		// Use newer doi.org resolver
