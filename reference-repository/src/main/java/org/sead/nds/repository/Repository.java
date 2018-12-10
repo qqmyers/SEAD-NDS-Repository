@@ -21,9 +21,13 @@ package org.sead.nds.repository;
 
 import java.io.IOException;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -151,11 +155,50 @@ public class Repository {
         // ToDo - Add Contributors/Contacts
         metadata.put(DataCiteMetadataTemplate.creators, DataCiteMetadataTemplate.generateCreatorsXml((JSONArray) RO.getOREMap()
                                 .getJSONObject("describes").get("Creator")));
-        metadata.put(DataCiteMetadataTemplate.contributors, DataCiteMetadataTemplate.generateContributorsXml(DataCiteMetadataTemplate.contactType,(JSONArray) RO.getOREMap()
-                .getJSONObject("describes").get("Creator")));
+        JSONArray contacts = (JSONArray) (RO.getOREMap()
+                .getJSONObject("describes").has("Contact") ? 
+                        RO.getOREMap().getJSONObject("describes").get("Contact") :
+                            RO.getOREMap().getJSONObject("describes").get("Creator"));
+                        
+        metadata.put(DataCiteMetadataTemplate.contributors, DataCiteMetadataTemplate.generateContributorsXml(DataCiteMetadataTemplate.contactType, contacts));
 
-
- 		metadata.put(DataCiteMetadataTemplate.relatedIdentifiers,"");
+        /* Add various types of related objects (from
+         * https://schema.datacite.org/meta/kernel-4.1/include/datacite-relationType-v4.1.xsd)
+         * that are specified by urn, url or DOI (from
+         * https://schema.datacite.org/meta/kernel-4.1/include/datacite-relatedIdentifierType-v4.xsd)
+         */ 
+        JSONObject describes = RO.getOREMap()
+                .getJSONObject("describes");
+        JSONObject relatedIds = new JSONObject();
+        //FixMe - use context
+        //hasPart
+        if (describes.has("hasPart")) {
+            relatedIds.put("HasPart", getValues(describes.get("hasPart")));
+        }
+        //references (or References)
+        if (describes.has("references")) {
+            relatedIds.put("References", getValues(describes.get("references")));
+        }
+        if (describes.has("References")) {
+            relatedIds.put("References", getValues(describes.get("References")));
+        }
+        //Primary/Initial Publication
+        if (describes.has("Primary/Initial Publication")) {
+            relatedIds.put("IsReferencedBy", getValues(describes.get("Primary/Initial Publication")));
+        }
+        //Published In
+        if (describes.has("Published In")) {
+            relatedIds.put("IsPartOf", getValues(describes.get("Published In")));
+        }
+        //Is Version Of
+        if (describes.has("Is Version Of")) {
+            relatedIds.put("IsVersionOf", getValues(describes.get("Is Version Of")));
+        }
+        //Is Referenced By
+        if (describes.has("Is Referenced By")) {
+            relatedIds.put("IsReferencedBy", getValues(describes.get("Is Referenced By")));
+        }
+ 		metadata.put(DataCiteMetadataTemplate.relatedIdentifiers,DataCiteMetadataTemplate.generateRelatedIdentifiers(relatedIds));
 		
 		// Get allowed purpose(s) from profile
 		JSONObject repository = RO.getRepositoryProfile();
@@ -235,7 +278,23 @@ log.info("Not supported");
 		return "http://doi.org/" + doi;
 	}
 
-	public static String getID() {
+    private static Set<String> getValues(Object entry) {
+        Set<String> values = new HashSet<String>();
+        if (entry instanceof String) {
+            values.add((String) entry);
+        } else if (entry instanceof JSONArray) {
+            Iterator<Object> iter = ((JSONArray) entry).iterator();
+            while (iter.hasNext()) {
+                Object val = iter.next();
+                if (val instanceof String) {
+                    values.add((String) val);
+                }
+            }
+        }
+        return values;
+    }
+
+    public static String getID() {
 		return repoID;
 	}
 
