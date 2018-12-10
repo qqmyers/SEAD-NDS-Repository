@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -92,7 +93,7 @@ public class DataCiteMetadataTemplate {
             } else if (o instanceof JSONObject) {
                 JSONObject jo = (JSONObject) o;
                 creatorsElement.append("<creator><creatorName>");
-                creatorsElement.append(jo.getString("givenName") + " " 
+                creatorsElement.append(jo.getString("givenName") + " "
                         + jo.getString("familyName"));
                 creatorsElement.append("</creatorName>");
                 creatorsElement.append("<nameIdentifier schemeURI=\"https://orcid.org/\" nameIdentifierScheme=\"ORCID\">" + jo.getString("@id") + "</nameIdentifier></creator>");
@@ -113,7 +114,7 @@ public class DataCiteMetadataTemplate {
                 } else if (o instanceof JSONObject) {
                     JSONObject jo = (JSONObject) o;
                     contributorsElement.append("<contributor contributorType=\"" + type + "\"><contributorName>");
-                    contributorsElement.append(jo.getString("givenName") + " " 
+                    contributorsElement.append(jo.getString("givenName") + " "
                             + jo.getString("familyName"));
                     contributorsElement.append("</contributorName>");
                     contributorsElement.append("<nameIdentifier schemeURI=\"https://orcid.org/\" nameIdentifierScheme=\"ORCID\">" + jo.getString("@id") + "</nameIdentifier></contributor>");
@@ -123,23 +124,41 @@ public class DataCiteMetadataTemplate {
         return contributorsElement.toString();
     }
 
-    private String generateRelatedIdentifiers(JSONObject oremap) {
+    public static String generateRelatedIdentifiers(JSONObject relatedIDs) {
 
         StringBuilder sb = new StringBuilder();
-        /*
-         * datafileIdentifiers = new ArrayList<>(); for (DataFile dataFile :
-         * dataset.getFiles()) { if (!dataFile.getGlobalId().asString().isEmpty()) { if
-         * (sb.toString().isEmpty()) { sb.append("<relatedIdentifiers>"); } sb.
-         * append("<relatedIdentifier relatedIdentifierType=\"DOI\" relationType=\"HasPart\">"
-         * + dataFile.getGlobalId() + "</relatedIdentifier>"); } }
-         * 
-         * if (!sb.toString().isEmpty()) { sb.append("</relatedIdentifiers>"); } } }
-         * else if (dvObject.isInstanceofDataFile()) { DataFile df = (DataFile)
-         * dvObject; sb.append("<relatedIdentifiers>"); sb.
-         * append("<relatedIdentifier relatedIdentifierType=\"DOI\" relationType=\"IsPartOf\""
-         * + ">" + df.getOwner().getGlobalId() + "</relatedIdentifier>");
-         * sb.append("</relatedIdentifiers>"); }
-         */
+        boolean firstEntry = true;
+        for (String key : relatedIDs.keySet()) {
+            JSONArray entries = relatedIDs.getJSONArray(key);
+            Iterator<Object> iter = entries.iterator();
+            while (iter.hasNext()) {
+                Object val = iter.next();
+                if (val instanceof String) {
+                    String valString = ((String) val).trim();
+                    if (!valString.contains(" ")) {
+                        String valType = null;
+                        if (valString.startsWith("doi") || valString.startsWith("https://doi.org/")) {
+                            valType = "DOI";
+                        } else if (valString.startsWith("urn:")) {
+                            valType = "URN";
+                        } else if (valString.startsWith("http")) {
+                            valType = "URL";
+                        }
+                        if (valType != null) {
+                            if (firstEntry) {
+                                sb.append("<relatedIdentifiers>");
+                                firstEntry=false;
+                            }
+                            sb.append("<relatedIdentifier relatedIdentifierType=\"" + valType + "\" relationType=\"" + key + "\">"
+                                    + valString + "</relatedIdentifier>");
+                        }
+                    }
+                }
+            }
+        }
+        if (!firstEntry) {
+            sb.append("</relatedIdentifiers>");
+        }
         return sb.toString();
     }
 
@@ -177,6 +196,7 @@ public class DataCiteMetadataTemplate {
     public void setDatasetIdentifier(String datasetIdentifier) {
         this.datasetIdentifier = datasetIdentifier;
     }
+
 }
 
 class Util {
