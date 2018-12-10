@@ -1,15 +1,15 @@
 var seadData = {};
 var id = null;
-var uriRoot = "./api/researchobjects/";
+var uriRoot = "./";
 
 $body = $("body");
 
 seadData.getId = function() {
 	if (id == null) {
 		id = String(window.location);
-		var index = id.indexOf("#");
+		var index = id.lastIndexOf("/");
 		if (index != -1) {
-			id = id.substring(id.indexOf("#") + 1);
+			id = id.substring(index + 1);
 		} else {
 			id = "";
 		}
@@ -42,7 +42,7 @@ seadData.getRepositoryInfoAjax = function() {
 	return $.ajax({
 		type : "GET",
 		timeout : '15000',
-		url : "./api/repository",
+		url : "../../api/repository",
 		dataType : "json"
 	});
 }
@@ -55,32 +55,8 @@ seadData.buildGrid = function(describes) {
 }
 
 seadData.fillInMetadata = function(describes) {
-	//Header and structured schema.org metadata:
-	$('head').append('<meta name="DC.identifier" content="' + describes["External Identifier"] + '" />');
-	$('head').append('<meta name="DC.type" content="Dataset" /><meta name="DC.title" content="' + describes.Title + '" />');
-	
+
 	var pubdate = describes["Publication Date"];
-	
-	$('head').append('<meta name="DC.date" content="' + pubdate + '" /><meta name="DC.publisher" content="SEAD" />');
-	$('head').append('<meta name="DC.description" content="' + describes.Abstract + '" />');
-			
-	
-						
-	$('head').append('<meta name="DC.creator" content="' + seadData.formatPeopleString(describes.Creator) + '" />');
-	$('head').append('<meta name="DC.subject" content="Scientific Research" />');
-	var schemald= {"@context":"http://schema.org",
-			       "@type":"Dataset",
-			       "identifier": describes["External Identifier"],
-			       "name":describes.Title,
-			       "author":seadData.formatPeopleMetadata(describes.Creator),
-			       "datePublished":pubdate,
-			       "description":describes.Abstract,
-			       "keywords":describes.Keyword,
-			       "schemaVersion":"https://schema.org/version/3.3",
-			       "license":{"@type":"Dataset","URL":describes.License},
-	               "includedInDataCatalog":{"@type":"DataCatalog","name":"SEAD","url":"https://sead2.ncsa.illinois.edu"},
-	               "provider":{"@type":"Organization","name":"http://www.nationaldataservice.org/"}};
-    $('head').append('<script type="application/ld+json">' + JSON.stringify(schemald) + '</script>');
 	
 	//Body contents
 	$('#Title').append(describes.Title);
@@ -124,7 +100,7 @@ seadData.fillInMetadata = function(describes) {
 						$('<a/>').attr('href', lic).attr('target', '_blank')
 								.append(
 										$('<img/>').attr('src',
-												'./images/' + type + ".png")
+												'../../images/' + type + ".png")
 												.attr('alt', 'CC-' + type)));
 			} else {
 				i = lic.indexOf('://creativecommons.org/publicdomain/zero/1.0');
@@ -133,7 +109,7 @@ seadData.fillInMetadata = function(describes) {
 							$('<a/>').attr('href', lic)
 									.attr('target', '_blank').append(
 											$('<img/>').attr('src',
-													'./images/zero.png').attr(
+													'../../images/zero.png').attr(
 													'alt', 'CC0')));
 				} else {
 					i = lic
@@ -143,7 +119,7 @@ seadData.fillInMetadata = function(describes) {
 								$('<a/>').attr('href', lic).attr('target',
 										'_blank').append(
 										$('<img/>').attr('src',
-												'./images/publicdomain.png')
+												'../../images/publicdomain.png')
 												.attr('alt',
 														'Public Domain Mark')));
 					} else {
