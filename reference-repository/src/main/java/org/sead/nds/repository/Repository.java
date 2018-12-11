@@ -172,8 +172,8 @@ public class Repository {
         JSONObject relatedIds = new JSONObject();
         //FixMe - use context
         //hasPart
-        if (describes.has("hasPart")) {
-            relatedIds.put("HasPart", getValues(describes.get("hasPart")));
+        if (describes.has("Has Part")) {
+            relatedIds.put("HasPart", getValues(describes.get("Has Part")));
         }
         //references (or References)
         if (describes.has("references")) {
@@ -257,14 +257,15 @@ log.info("Not supported");
 			doi = existingID;
 			client.close();
 		} else if ((existingID == null) || !allowUpdates) {
-			log.debug("Generating new ID with shoulder: " + shoulder);
+			
 			//doi = ezid.mintIdentifier(shoulder, metadata);
 			//MAYBE: provide a shoulder on the DataCite /metadata call and it will generate an identifier
 			doi = shoulder +  RandomStringUtils.randomAlphanumeric(6).toUpperCase();
+			log.debug("Generating new PID : " + doi);
 			metadata.put(DataCiteMetadataTemplate.identifier,doi);
-			 client.postMetadata(new DataCiteMetadataTemplate(metadata).getMetadata());
-
-			 client.postUrl(doi, target);
+			 log.debug(client.postMetadata(new DataCiteMetadataTemplate(metadata).getMetadata()));
+log.debug("Sending URL: " + target);
+			 log.debug(client.putUrl(doi, target));
  
 	        
 		} else {
