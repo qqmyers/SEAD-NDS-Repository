@@ -135,6 +135,7 @@ public class DataCiteMetadataTemplate {
                 Object val = iter.next();
                 if (val instanceof String) {
                     String valString = ((String) val).trim();
+                    logger.debug("Related type: " + valString);
                     if (!valString.contains(" ")) {
                         String valType = null;
                         if (valString.startsWith("doi") || valString.startsWith("https://doi.org/")) {

@@ -18,6 +18,7 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
@@ -75,17 +76,18 @@ public class DataCiteRESTfulClient implements Closeable {
      * @param url
      * @return
      */
-    public String postUrl(String doi, String url) {
-        HttpPost httpPost = new HttpPost(this.url + "/doi");
-        httpPost.setHeader("Content-Type", "text/plain;charset=UTF-8");
-        httpPost.setEntity(new StringEntity("doi=" + doi + "\nurl=" + url, "utf-8"));
+    public String putUrl(String doi, String url) {
+        HttpPut httpPut = new HttpPut(this.url + "/doi/" + doi);
+        httpPut.setHeader("Content-Type", "text/plain;charset=UTF-8");
+        httpPut.setEntity(new StringEntity("doi=" + doi + "\nurl=" + url, "utf-8"));
 
         try {
-            HttpResponse response = httpClient.execute(httpPost,context);
+            HttpResponse response = httpClient.execute(httpPut,context);
             String data = EntityUtils.toString(response.getEntity(), encoding);
             if (response.getStatusLine().getStatusCode() != 201) {
                 String errMsg = "Response code: " + response.getStatusLine().getStatusCode() + ", " + data;
                 logger.log(Level.SEVERE,errMsg);
+                logger.log(Level.SEVERE,data);
                 throw new RuntimeException(errMsg);
             }
             return data;
