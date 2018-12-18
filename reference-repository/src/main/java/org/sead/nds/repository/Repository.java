@@ -19,25 +19,17 @@
 
 package org.sead.nds.repository;
 
-import java.io.IOException;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Properties;
-import java.util.Set;
-
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
-
 import org.sead.nds.repository.util.DataCiteMetadataTemplate;
 import org.sead.nds.repository.util.DataCiteRESTfulClient;
 import org.sead.nds.repository.util.SEADException;
+
+import java.io.IOException;
+import java.util.*;
 
 public class Repository {
 
@@ -284,13 +276,22 @@ log.debug("Sending URL: " + target);
         if (entry instanceof String) {
             values.add((String) entry);
         } else if (entry instanceof JSONArray) {
-            Iterator<Object> iter = ((JSONArray) entry).iterator();
+
+            JSONArray jsonArray = (JSONArray) entry;
+            for(int i = 0 ; i < jsonArray.length() ; i++) {
+                Object val = jsonArray.get(i);
+                if (val instanceof String) {
+                    values.add((String) val);
+                }
+            }
+
+            /*Iterator<Object> iter = ((JSONArray) entry).iterator();
             while (iter.hasNext()) {
                 Object val = iter.next();
                 if (val instanceof String) {
                     values.add((String) val);
                 }
-            }
+            }*/
         }
         return values;
     }

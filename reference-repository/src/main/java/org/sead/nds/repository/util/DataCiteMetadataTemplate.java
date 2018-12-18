@@ -1,23 +1,17 @@
 package org.sead.nds.repository.util;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 /* Adapted from import edu.harvard.iq.dataverse.DataCiteMetadataTemplate */
 
@@ -130,9 +124,14 @@ public class DataCiteMetadataTemplate {
         boolean firstEntry = true;
         for (String key : relatedIDs.keySet()) {
             JSONArray entries = relatedIDs.getJSONArray(key);
-            Iterator<Object> iter = entries.iterator();
-            while (iter.hasNext()) {
-                Object val = iter.next();
+
+            for(int i = 0 ; i < entries.length() ; i++) {
+                Object val = entries.get(i);
+
+//            Iterator<Object> iter = entries.iterator();
+//            while (iter.hasNext()) {
+//                Object val = iter.next();
+
                 if (val instanceof String) {
                     String valString = ((String) val).trim();
                     logger.debug("Related type: " + valString);
