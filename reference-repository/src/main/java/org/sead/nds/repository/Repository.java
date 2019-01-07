@@ -118,13 +118,11 @@ public class Repository {
 					.getJSONObject(PubRequestFacade.PREFERENCES)
 					.getString(PubRequestFacade.EXTERNAL_IDENTIFIER);
 			if (existingID.startsWith("http://dx.doi.org/")) {
-				existingID = "doi:"
-						+ existingID.substring("http://dx.doi.org/".length());
+				existingID = existingID.substring("http://dx.doi.org/".length());
 			}
 			// Moving to new resolver - check for both
 			if (existingID.startsWith("http://doi.org/")) {
-				existingID = "doi:"
-						+ existingID.substring("http://doi.org/".length());
+				existingID = existingID.substring("http://doi.org/".length());
 			}
 			if (existingID != null && !allowUpdates) {
 				// FixMe - should we fail instead of going forward with a new
@@ -226,6 +224,8 @@ public class Repository {
 			} else if (!purposePref.equalsIgnoreCase(PubRequestFacade.PRODUCTION)) {
 				// Should be the only option today, but warn if it doesn't match
 				log.warn("Unknown Purpose Preference: " + purposePref);
+			} else {
+			    production=true; //Used to decide which shoulder to use
 			}
 		}
 		boolean purposeIsAllowed = false;
@@ -252,9 +252,16 @@ public class Repository {
 			// page for this DOI - can then
 			// decide what to do, e.g. to move/remove the old version, do
 			// something other than a 404 for the old landing URL, etc.
-log.info("Not supported");
+            doi = existingID;
+		    log.info("Not automated");
+		    log.info("Existing DOI: " + doi);
+		    log.info("Target URL: " + target);
+
+		    metadata.put(DataCiteMetadataTemplate.identifier,doi);
+		    log.info("Metadata: " + new DataCiteMetadataTemplate(metadata).getMetadata());
+
 			log.debug("Updating metadata for: " + existingID);
-			doi = existingID;
+			
 			client.close();
 		} else if ((existingID == null) || !allowUpdates) {
 			
