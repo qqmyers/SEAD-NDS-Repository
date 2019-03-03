@@ -54,6 +54,9 @@ public class MovePublication {
 	private static final Logger log = LogManager.getLogger(MovePublication.class);
 
 	private static String similarTo = "similarTo";
+	private static String ID = "@id";
+    private static String externalID = "External Identifier";
+
 	private static Map<String, String> pidMap = null;
 
 	/**
@@ -79,14 +82,16 @@ public class MovePublication {
 		
 		Properties inputProps = new Properties();
 		inputProps.put("repo.datapath", "./");
+		inputProps.put("repo.ID", "Bob"); // Needed but not used.
 		Repository.init(inputProps);
 		String inputPath = RefRepository.getDataPathTo(id);
-		
+		System.out.println(inputPath + " / " + bagNameRoot);
 		File result = new File(inputPath, bagNameRoot + ".zip");
 		ZipFile zf = null;
 		try {
 			zf = new ZipFile(result);
 			InputStream oreIS = null;
+			
 			ZipEntry archiveEntry1 = zf.getEntry(bagNameRoot
 					+ "/oremap.jsonld.txt");
 
@@ -109,6 +114,7 @@ public class MovePublication {
 
 		} catch (IOException e) {
 			log.warn("Can't find entries: ", e);
+		} finally {
 			IOUtils.closeQuietly(zf);
 		}
 
@@ -119,12 +125,19 @@ public class MovePublication {
 		 * http://cet.ncsa.uiuc.edu/2015/File ver):
 		 */
 
-		JSONArray aggregates = oremap.getJSONObject("describes").getJSONArray(
-				"aggregates");
-		for (int i = 0; i < aggregates.length(); i++) {
+        oremap.put(ID, newLocation(oremap.getString(ID), base));
+        
+        JSONObject agg = oremap.getJSONObject("describes");
+        //Update old DOI strings
+        agg.put(externalID, agg.getString(externalID).replace("dx.doi", "doi"));
+        
+        agg.put(ID, newLocation(agg.getString(ID), base));
+        JSONArray aggregates = agg.getJSONArray(
+                "aggregates");
+        for (int i = 0; i < aggregates.length(); i++) {
 			JSONObject resource = aggregates.getJSONObject(i);
 			if (isData(resource)) {
-				resource.put(similarTo, newLocation(resource, base));
+				resource.put(similarTo, newLocation(resource.getString(similarTo), base));
 			}
 		}
 
@@ -139,7 +152,7 @@ public class MovePublication {
 		}
 	}
 
-	private static String newLocation(JSONObject resource, String base) {
+	private static String newLocation(String location, String base) {
 		/*
 		 * SDA-style: URLs contain /resteasy/researchobjects/<RO
 		 * ID>/files/<URLencoded live ID>?pubtoken=<key> Map to
@@ -148,7 +161,6 @@ public class MovePublication {
 		 * RefRepoStyle - just replace base before the /api/researchobjects
 		 * ...// TODO Auto-generated method stub
 		 */
-		String location = resource.getString(similarTo);
 		String newLocation = location; // Default - leave as is.
 		if (location.contains("/resteasy/researchobjects/")) {
 			// SDA style
@@ -168,12 +180,28 @@ public class MovePublication {
 			System.out.println(ro_id);
 			System.out.println(id);
 			String path = pidMap.get(id);
-			path = path.substring(path.indexOf("/data"));
+	         //Some paths don't escape the / chars in the internal path as required for the ref repository
+			int offset=path.indexOf("/data/");
+			if(offset>=0) {
+			path = path.substring(offset, offset+6) + path.substring(offset+6).replace("/",  "%2F");
+			}
 			newLocation = (base + "/api/researchobjects/" + ro_id + path);
 		} else if (location.contains("/api/researchobjects/")) {
 			// Ref style
-			newLocation = base + location.substring(location.indexOf("/api/researchobjects/"));
+		    String newPath = location.substring(location.indexOf("/api/researchobjects/"));
+		    //Some paths don't escape the / chars in the internal path as required for the ref repository
+		    int offset = newPath.indexOf("/data/");
+		    if(offset >=0) {
+		      newPath = newPath.substring(0,offset+6) + newPath.substring(offset+6).replace("/", "%2F");
+		    }
+			newLocation = base + newPath;
 		}
+		if(newLocation.endsWith("oremap")) {
+		    newLocation = newLocation.substring(0,newLocation.length()-6) + "meta/oremap.jsonld.txt";
+		}
+		if(newLocation.endsWith("oremap#aggregation")) {
+            newLocation = newLocation.substring(0,newLocation.length()-18) + "meta/oremap.jsonld.txt#aggregation";
+        }
 		return newLocation;
 	}
 
