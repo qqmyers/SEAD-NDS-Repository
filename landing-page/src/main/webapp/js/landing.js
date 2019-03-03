@@ -1,6 +1,7 @@
 var seadData = {};
 var id = null;
 var uriRoot = "./";
+var restricted=false;
 
 $body = $("body");
 
@@ -128,6 +129,10 @@ seadData.fillInMetadata = function(describes) {
 					}
 				}
 			}
+		} else {
+			$('#license').text(lic);
+			//Kludge - the IFRI dataset is the only one we have that does not use an "http..." license, so we can use lack of http as an indicator of restricted.
+			restricted=true;
 		}
 	}
 
@@ -198,23 +203,26 @@ seadData.addDownloadLinks = function(describes) {
 			describes["Publishing Project Name"]);
 
 	$('#livecopy').attr('href', liveCopy).attr('target', '_blank');
-	$('#actions').append(
-			($('<a/>').attr('href', uriRoot + seadData.getId() + '/bag')).attr(
-					'target', '_blank').attr('download',
-					seadData.getId().replace(/\W+/g, "_") + '.zip').append(
-					$('<div/>').attr('id', 'download').attr('class',
-							'btn btn-primary col-xs-6').text(
-							'Download Whole Publication')));
-	$('#actions').append(
-			($('<a/>').attr('href', uriRoot + seadData.getId()
-					+ '/meta/oremap.jsonld.txt')).attr('target', '_blank')
-					.attr(
-							'download',
-							seadData.getId().replace(/\W+/g, "_")
-									+ 'oremap.json').append(
-							$('<div/>').attr('id', 'map').attr('class',
-									'btn btn-primary col-xs-6').text(
-									'Download Metadata Only')));
+	if (!restricted) {
+		$('#actions').append(
+				($('<a/>').attr('href', uriRoot + seadData.getId() + '/bag'))
+						.attr('target', '_blank').attr('download',
+								seadData.getId().replace(/\W+/g, "_") + '.zip')
+						.append(
+								$('<div/>').attr('id', 'download').attr(
+										'class', 'btn btn-primary col-xs-6')
+										.text('Download Whole Publication')));
+		$('#actions').append(
+				($('<a/>').attr('href', uriRoot + seadData.getId()
+						+ '/meta/oremap.jsonld.txt')).attr('target', '_blank')
+						.attr(
+								'download',
+								seadData.getId().replace(/\W+/g, "_")
+										+ 'oremap.json').append(
+								$('<div/>').attr('id', 'map').attr('class',
+										'btn btn-primary col-xs-6').text(
+										'Download Metadata Only')));
+	}
 	$('#manifest').append(($('<a/>').attr('href', uriRoot + seadData.getId() + '/manifest')).attr('target', '_blank').append('File Manifest Page.'));
 }
 
@@ -529,15 +537,19 @@ function getDataRow(parentId, childId, name, uri, size) {
 	var id = seadData.getId();
 
 	// with Analytics tracking
-
-	newRow.append($('<td/>').append(
-			$('<span/>').addClass('file').append(
-					$('<a/>').attr('href', uri).attr('target', '_blank').attr(
-							"onclick",
-							"ga('send', 'event', '" + aggTitle + '::' + id
-									+ "', 'File Download', '" + uri + "');")
-							.html(name))));
-
+	if(restricted) {
+		newRow.append($('<td/>').append(^M
+				$('<span/>').addClass('file').append(^M
+						$('<span/>').text(name))));^M
+	} else }
+		newRow.append($('<td/>').append(
+				$('<span/>').addClass('file').append(
+						$('<a/>').attr('href', uri).attr('target', '_blank').attr(
+								"onclick",
+								"ga('send', 'event', '" + aggTitle + '::' + id
+										+ "', 'File Download', '" + uri + "');")
+								.html(name))));
+	}
 	newRow.append($('<td/>').html(filesize(parseInt(size), {
 		base : 10
 	})));
