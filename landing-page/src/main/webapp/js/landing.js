@@ -223,7 +223,11 @@ seadData.addDownloadLinks = function(describes) {
 										'btn btn-primary col-xs-6').text(
 										'Download Metadata Only')));
 	}
-	$('#manifest').append(($('<a/>').attr('href', uriRoot + seadData.getId() + '/manifest')).attr('target', '_blank').append('File Manifest Page.'));
+	 if(!restricted){
+		$('#manifest').append(($('<a/>').attr('href', uriRoot + seadData.getId() + '/manifest')).attr('target', '_blank').append('File Manifest Page.'));
+	} else {
+		$('#manifest').parent().html("");
+	}
 }
 
 seadData.formatPeople = function(people) {
