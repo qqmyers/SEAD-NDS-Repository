@@ -143,7 +143,7 @@ public class MovePublication {
 
 		//Freshen zip
 		try {
-			FileSystem zfs = FileSystems.newFileSystem(result.toPath(), null);
+			FileSystem zfs = FileSystems.newFileSystem(result.toPath());
 			Files.copy(new ByteArrayInputStream(oremap.toString(2).getBytes(StandardCharsets.UTF_8)), zfs.getPath(bagNameRoot + "/oremap.jsonld.txt"), StandardCopyOption.REPLACE_EXISTING); 
 			zfs.close();
 		} catch (IOException e1) {
