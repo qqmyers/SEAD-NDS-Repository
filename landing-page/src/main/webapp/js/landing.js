@@ -542,10 +542,10 @@ function getDataRow(parentId, childId, name, uri, size) {
 
 	// with Analytics tracking
 	if(restricted) {
-		newRow.append($('<td/>').append(^M
-				$('<span/>').addClass('file').append(^M
-						$('<span/>').text(name))));^M
-	} else }
+		newRow.append($('<td/>').append(
+				$('<span/>').addClass('file').append(
+						$('<span/>').text(name))));
+	} else {
 		newRow.append($('<td/>').append(
 				$('<span/>').addClass('file').append(
 						$('<a/>').attr('href', uri).attr('target', '_blank').attr(
