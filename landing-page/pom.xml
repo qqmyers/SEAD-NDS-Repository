@@ -18,7 +18,7 @@
 		<plugins>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>2.3.2</version>
+				<version>3.10.1</version>
 				<inherited>true</inherited>
 				<configuration>
 					<source>1.7</source>
@@ -28,7 +28,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-war-plugin</artifactId>
-				<version>2.2</version>
+				<version>3.3.2</version>
 				<configuration>
 					<archiveClasses>false</archiveClasses>
 					<webResources>
@@ -54,7 +54,7 @@
 		<repository>
 			<id>refrepo.local</id>
 			<name>refrepo</name>
-			<url>file:d:/git/sead-NDS-Repository/reference-repository/repo</url>
+			<url>file:/mnt/d/git/sead-NDS-Repository/reference-repository/repo</url>
 		</repository>
 	</repositories>
 
@@ -191,7 +191,7 @@
 			<dependency>
 				<groupId>org.sead</groupId>
 				<artifactId>ref-repo</artifactId>
-				<version>1.0.54</version>
+				<version>1.0.61</version>
 				<type>jar</type>
 			</dependency>
 			<dependency>
