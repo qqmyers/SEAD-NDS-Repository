@@ -275,9 +275,7 @@ public class BagGenerator {
 		log.debug("Starting write");
 		writeTo(zipArchiveOutputStream);
 		log.info("Zipfile Written");
-		// Finish
-		zipArchiveOutputStream.close();
-		log.debug("Closed");
+
 
 		// Validate oremap - all entries are part of the collection
 		for (int i = 0; i < resourceUsed.length; i++) {
@@ -546,7 +544,7 @@ public class BagGenerator {
 						log.warn("Multiple hash values in use - not supported");
 					}
 					hashtype = "SHA1 Hash";
-					childHash = child.getString("SHA1 Hash");
+					childHash = child.getString("SHA1 Hash").replaceAll("^\"|\"$", "");
 					if (sha1Map.containsValue(childHash)) {
 						// Something else has this hash
 						log.warn("Duplicate/Collision: " + child.getString("Identifier") + " has SHA1 Hash: "
@@ -559,7 +557,7 @@ public class BagGenerator {
 						log.warn("Multiple has values in use - not supported");
 					}
 					hashtype = "SHA512 Hash";
-					childHash = child.getString("SHA512 Hash");
+					childHash = child.getString("SHA512 Hash").replaceAll("^\"|\"$", "");
 					if (sha1Map.containsValue(childHash)) {
 						// Something else has this hash
 						log.warn("Duplicate/Collision: " + child.getString("Identifier") + " has SHA512 Hash: "
@@ -578,7 +576,7 @@ public class BagGenerator {
 						success = createFileFromLocalSource(childPath, hashtype, childHash);
 					}
 					if (!success) {
-						if((childHash==null)| ignorehashes) {
+						if((childHash==null)| childHash.length()==0 | ignorehashes) {
 							//Generate missing hashInputStream inputStream = null;
 							InputStream inputStream = null;
 							try {
@@ -746,10 +744,13 @@ public class BagGenerator {
 			throws IOException, ExecutionException, InterruptedException {
 		log.debug("Writing dirs");
 		dirs.writeTo(zipArchiveOutputStream);
-		dirs.close();
 		log.debug("Dirs written");
 		scatterZipCreator.writeTo(zipArchiveOutputStream);
 		log.debug("Files written");
+		// Finish
+		dirs.close();
+		zipArchiveOutputStream.close();
+		log.debug("Closed");
 	}
 
 	static final String CRLF = "\r\n";
@@ -844,9 +845,9 @@ public class BagGenerator {
 	 * create a concatenated string so that information is not lost.
 	 * 
 	 * @param parent
-	 *            - the root json object
+	 *			- the root json object
 	 * @param key
-	 *            - the key to find a value(s) for
+	 *			- the key to find a value(s) for
 	 * @return - a single string
 	 */
 	String getSingleValue(JSONObject parent, String key) {
